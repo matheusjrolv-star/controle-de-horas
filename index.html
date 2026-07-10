@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão de Propostas (Nuvem)</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        h1, h2, h3 { margin-top: 0; color: #0f172a; }
+        .card {
+            background: var(--card);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .card-funcionaria { border-top: 5px solid var(--success); }
+        .card-admin { border-top: 5px solid var(--primary); }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .metric-card {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-top: 5px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 1rem;
+        }
+        button:hover { opacity: 0.9; }
+        .btn-success { background: var(--success); }
+        .btn-danger { background: var(--danger); }
+        .btn-sync { background: #0f172a; width: 100%; font-weight: bold; padding: 14px; margin-bottom: 10px; border-radius: 6px;}
+        
+        .proposal-item {
+            border: 1px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            background: #fafafa;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .badge-pending { background: #fef3c7; color: #d97706; }
+        .badge-aceito { background: #dcfce7; color: #15803d; }
+        .badge-recusado { background: #fee2e2; color: #b91c1c; }
+        .flex-btns {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .mes-titulo-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #e2e8f0;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+        .mes-titulo { font-weight: bold; }
+        .btn-download { background: #0284c7; font-size: 0.8rem; padding: 4px 8px; width: auto; }
+        .info-limite { font-size: 0.85rem; color: #64748b; font-style: italic; margin-bottom: 10px;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <button onclick="puxarDadosServidor(true)" class="btn-sync">🔄 Sincronizar / Atualizar Dados do Servidor</button>
+
+    <div class="card card-funcionaria">
+        <h2>1. Painel da Funcionária</h2>
+        <p style="color: #64748b;">Responda propostas ou altere antes de serem avaliadas pelo ADM.</p>
+        <p class="info-limite">* Mostrando os 5 registros mais recentes.</p>
+        <div id="lista-funcionaria"></div>
+    </div>
+
+    <div class="card">
+        <h2>2. Relatório do Mês Atual (<span id="nome-mes-atual">...</span>)</h2>
+        <div class="metrics" id="metricas-atual"></div>
+        <div id="btn-download-atual-container" style="margin-top: 15px; text-align: right;"></div>
+    </div>
+
+    <div class="card card-admin">
+        <h2>3. Painel do Administrador</h2>
+        
+        <h3>Enviar Nova Proposta</h3>
+        <form id="form-proposta" onsubmit="validarEEnviarProposta(event)">
+            <div class="form-group">
+                <label>Horário do Serviço:</label>
+                <input type="datetime-local" id="horario" required>
+            </div>
+            <button type="submit">Enviar Proposta</button>
+        </form>
+
+        <h3 style="margin-top: 25px;">Avaliar Serviços Concluídos</h3>
+        <p class="info-limite">* Mostrando os 5 registros aceitos mais recentes.</p>
+        <div id="lista-admin-avaliar"></div>
+        
+        <hr style="margin-top:30px; border-color:#e2e8f0;">
+        <button onclick="apagarUltimoRegistro()" class="btn-danger" style="width: auto; font-size: 0.85rem;">Apagar Último Registro Criado</button>
+    </div>
+
+    <div class="card">
+        <h2>4. Relatório de Meses Passados</h2>
+        <div id="historico-meses-passados"></div>
+    </div>
+
+</div>
+
+<script>
+    // ================= CONFIGURAÇÕES DO JSONBIN =================
+    // COLOQUE SEU ID E CHAVE ABAIXO DEPOIS DE CRIAR NO SITE JSONBIN.IO
+    const BIN_ID = '6a509ad9da38895dfe49d464'; 
+    const API_KEY = '$2a$10$7dVyC01WDjHJMWMUJIlfL.nhEeLVzYj29Efwck45r8on6hGiq20L6';
+    const URL_JSONBIN = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+    let propostas = [];
+
+    const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    const dataHoje = new Date();
+    const mesAtualIndex = dataHoje.getMonth();
+    const anoAtual = dataHoje.getFullYear();
+    document.getElementById('nome-mes-atual').innerText = `${nomesMeses[mesAtualIndex]} / ${anoAtual}`;
+
+    // --- INTERAÇÕES EXCLUSIVAS COM SERVIDOR ---
+    async function puxarDadosServidor(notificar = false) {
+        if(BIN_ID.includes('AQUI')) {
+            alert("Atenção: Insira seu BIN_ID e API_KEY do jsonbin.io no código para o servidor funcionar globalmente.");
+            return;
+        }
+
+        try {
+            const res = await fetch(URL_JSONBIN, {
+                method: 'GET',
+                headers: { 'X-Master-Key': API_KEY }
+            });
+            const dados = await res.json();
+            propostas = dados.record.propostas || [];
+            atualizarTela();
+            if (notificar) alert("Dados atualizados com sucesso do servidor!");
+        } catch (err) {
+            alert("Erro ao conectar com o servidor central. Verifique a internet e as chaves.");
+        }
+    }
+
+    async function salvarDadosServidor() {
+        if(BIN_ID.includes('AQUI')) {
+            alert("Não foi possível salvar na nuvem: Chaves de API ausentes.");
+            return;
+        }
+
+        try {
+            await fetch(URL_JSONBIN, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': API_KEY
+                },
+                body: JSON.stringify({ propostas: propostas })
+            });
+            atualizarTela();
+        } catch (err) {
+            alert("Falha de gravação: Não foi possível sincronizar os novos dados com o servidor.");
+        }
+    }
+
+    function verificarSenha() {
+        const senha = prompt("Digite a senha de Administrador para prosseguir:");
+        return senha === "2123";
+    }
+
+    // --- AÇÕES DO SISTEMA ---
+    function validarEEnviarProposta(e) {
+        e.preventDefault();
+        if (!verificarSenha()) {
+            alert("Senha incorreta!");
+            return;
+        }
+        
+        const horarioVal = document.getElementById('horario').value;
+        const novaProposta = {
+            id: Date.now(),
+            horario: horarioVal,
+            status: 'pending', 
+            tipo: null,         
+            avaliacao: null     
+        };
+
+        propostas.push(novaProposta);
+        document.getElementById('form-proposta').reset();
+        salvarDadosServidor();
+    }
+
+    function responderProposta(id, aceitar) {
+        const prop = propostas.find(p => p.id === id);
+        if (aceitar) {
+            const tipo = document.getElementById(`tipo-${id}`).value;
+            prop.status = 'aceito';
+            prop.tipo = tipo;
+        } else {
+            prop.status = 'recusado';
+            prop.tipo = null;
+        }
+        salvarDadosServidor();
+    }
+
+    function avaliarServico(id, cumpriu) {
+        if (!verificarSenha()) {
+            alert("Senha incorreta!");
+            return;
+        }
+        const prop = propostas.find(p => p.id === id);
+        prop.avaliacao = cumpriu ? 'cumpriu' : 'nao_cumpriu';
+        salvarDadosServidor();
+    }
+
+    function apagarUltimoRegistro() {
+        if (!verificarSenha()) {
+            alert("Senha incorreta!");
+            return;
+        }
+        if(propostas.length === 0) {
+            alert("Nenhum registro no servidor para apagar.");
+            return;
+        }
+        if(confirm("Deseja apagar o último registro criado do servidor?")) {
+            propostas.sort((a,b) => a.id - b.id); 
+            propostas.pop(); 
+            salvarDadosServidor();
+            alert("Registro removido do servidor.");
+        }
+    }
+
+    // --- CÁLCULO E DOWNLOADS ---
+    function calcularMetricasObjeto(listaPropostas) {
+        const total = listaPropostas.length;
+        if (total === 0) return { total:0, aceitas:0, pctAceitacao: 0, completos:0, pctCompleto: 0, cumpriram:0, pctAproveitamento: 0 };
+
+        const aceitas = listaPropostas.filter(p => p.status === 'aceito').length;
+        const pctAceitacao = ((aceitas / total) * 100).toFixed(1);
+
+        const completos = listaPropostas.filter(p => p.status === 'aceito' && p.tipo === 'completo').length;
+        const pctCompleto = aceitas > 0 ? ((completos / aceitas) * 100).toFixed(1) : 0;
+
+        const cumpriram = listaPropostas.filter(p => p.status === 'aceito' && p.avaliacao === 'cumpriu').length;
+        const pctAproveitamento = aceitas > 0 ? ((cumpriram / aceitas) * 100).toFixed(1) : 0;
+
+        return { total, aceitas, pctAceitacao, completos, pctCompleto, cumpriram, pctAproveitamento };
+    }
+
+    function gerarHtmlMetricas(listaPropostas) {
+        const m = calcularMetricasObjeto(listaPropostas);
+        return `
+            <div class="metric-card"><div>% Aceitação</div><div class="metric-value">${m.pctAceitacao}%</div><small>${m.aceitas} de ${m.total}</small></div>
+            <div class="metric-card"><div>% Completo <small>(dos aceitos)</small></div><div class="metric-value">${m.pctCompleto}%</div><small>${m.completos} de ${m.aceitas}</small></div>
+            <div class="metric-card"><div>% Aproveitamento Final</div><div class="metric-value">${m.pctAproveitamento}%</div><small>${m.cumpriram} de ${m.aceitas}</small></div>
+        `;
+    }
+
+    function baixarRelatorioTxt(nomeMes, listaPropostas) {
+        const m = calcularMetricasObjeto(listaPropostas);
+        let txt = `==================================================\n`;
+        txt += `RELATÓRIO DE SERVIÇOS - COORTES DE: ${nomeMes.toUpperCase()}\n`;
+        txt += `==================================================\n\n`;
+        txt += `RESUMO DAS MÉTRICAS:\n`;
+        txt += `- Total de Propostas Enviadas: ${m.total}\n`;
+        txt += `- Total de Propostas Aceitas: ${m.aceitas} (${m.pctAceitacao}% de Aceitação)\n`;
+        txt += `- Serviços do Tipo Completo: ${m.completos} (${m.pctCompleto}% dos aceitos)\n`;
+        txt += `- Serviços que Cumpriram Expectativas: ${m.cumpriram} (${m.pctAproveitamento}% de Aproveitamento Final)\n\n`;
+        txt += `DETALHAMENTO DOS REGISTROS:\n`;
+        txt += `--------------------------------------------------\n`;
+        
+        listaPropostas.forEach((p, idx) => {
+            const dataF = new Date(p.horario).toLocaleString('pt-BR');
+            txt += `${idx + 1}. Data/Hora: ${dataF}\n`;
+            txt += `   Status: ${p.status.toUpperCase()}\n`;
+            txt += `   Tipo: ${p.tipo ? p.tipo.toUpperCase() : 'N/A'}\n`;
+            txt += `   Avaliação do ADM: ${p.avaliacao ? p.avaliacao.toUpperCase() : 'PENDENTE DE AVALIAÇÃO'}\n`;
+            txt += `--------------------------------------------------\n`;
+        });
+
+        const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Relatorio_${nomeMes.replace(/[\s\/]/g, '_')}.txt`;
+        link.click();
+    }
+
+    // --- RENDERIZADOR ---
+    function atualizarTela() {
+        const listaFunc = document.getElementById('lista-funcionaria');
+        const listaAdminAvaliar = document.getElementById('lista-admin-avaliar');
+        
+        listaFunc.innerHTML = '';
+        listaAdminAvaliar.innerHTML = '';
+
+        const propostasMesAtual = [];
+        const agrupadoMesesPassados = {};
+
+        propostas.sort((a, b) => new Date(b.horario) - new Date(a.horario));
+
+        propostas.forEach(prop => {
+            const dataObjeto = new Date(prop.horario);
+            const m = dataObjeto.getMonth();
+            const a = dataObjeto.getFullYear();
+
+            if (m === mesAtualIndex && a === anoAtual) {
+                propostasMesAtual.push(prop);
+            } else {
+                const chaveMes = `${nomesMeses[m]} / ${a}`;
+                if (!agrupadoMesesPassados[chaveMes]) agrupadoMesesPassados[chaveMes] = [];
+                agrupadoMesesPassados[chaveMes].push(prop);
+            }
+        });
+
+        // 1. Painel Funcionária (Limitado aos 5 mais recentes)
+        propostas.slice(0, 5).forEach(prop => {
+            const dataFormatada = new Date(prop.horario).toLocaleString('pt-BR');
+            const podeModificar = !prop.avaliacao;
+
+            if (prop.status === 'pending') {
+                listaFunc.innerHTML += `
+                    <div class="proposal-item">
+                        <p><strong>Nova Proposta:</strong> ${dataFormatada} <span class="badge badge-pending">Pendente</span></p>
+                        <div class="form-group">
+                            <select id="tipo-${prop.id}">
+                                <option value="comum">Serviço Comum</option>
+                                <option value="completo">Serviço Completo</option>
+                            </select>
+                        </div>
+                        <div class="flex-btns">
+                            <button onclick="responderProposta(${prop.id}, true)" class="btn-success">✔ Aceitar</button>
+                            <button onclick="responderProposta(${prop.id}, false)" class="btn-danger">✖ Recusar</button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                listaFunc.innerHTML += `
+                    <div class="proposal-item" style="opacity: ${podeModificar ? 1 : 0.75}">
+                        <p><strong>Serviço:</strong> ${dataFormatada} → <span class="badge badge-${prop.status}">${prop.status}</span> ${prop.tipo ? `[${prop.tipo}]` : ''}</p>
+                        ${podeModificar ? `
+                            <div style="background:#e0f2fe; padding:8px; border-radius:4px; margin-top:5px;">
+                                <small>👉 Você ainda pode alterar essa resposta:</small>
+                                <div class="flex-btns" style="margin-top:5px;">
+                                    <select id="tipo-${prop.id}" style="padding:4px; font-size:0.85rem;">
+                                        <option value="comum" ${prop.tipo === 'comum' ? 'selected' : ''}>Comum</option>
+                                        <option value="completo" ${prop.tipo === 'completo' ? 'selected' : ''}>Completo</option>
+                                    </select>
+                                    <button onclick="responderProposta(${prop.id}, true)" class="btn-success" style="padding:4px 8px; font-size:0.85rem;">Mudar p/ Aceito</button>
+                                    <button onclick="responderProposta(${prop.id}, false)" class="btn-danger" style="padding:4px 8px; font-size:0.85rem;">Mudar p/ Recusado</button>
+                                </div>
+                            </div>
+                        ` : `<small style="color:grey;">🔒 Bloqueado: Já avaliado pelo Administrador.</small>`}
+                    </div>
+                `;
+            }
+        });
+        if(propostas.length === 0) listaFunc.innerHTML = '<p>Nenhuma proposta registrada.</p>';
+
+        // 2. Painel Admin (Limitado aos 5 aceitos mais recentes)
+        const aceitasVisiveis = propostas.filter(p => p.status === 'aceito').slice(0, 5);
+        aceitasVisiveis.forEach(prop => {
+            const dataFormatada = new Date(prop.horario).toLocaleString('pt-BR');
+            if (!prop.avaliacao) {
+                listaAdminAvaliar.innerHTML += `
+                    <div class="proposal-item">
+                        <p><strong>Aguardando Avaliação:</strong> ${dataFormatada} (${prop.tipo})</p>
+                        <div class="flex-btns">
+                            <button onclick="avaliarServico(${prop.id}, true)" class="btn-success">Cumpriu Expectativas</button>
+                            <button onclick="avaliarServico(${prop.id}, false)" class="btn-danger">Não Cumpriu</button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                listaAdminAvaliar.innerHTML += `
+                    <div style="font-size:0.9rem; color:#64748b; margin-bottom:8px;">
+                        ✓ ${dataFormatada} (${prop.tipo}) → Avaliado: <strong>${prop.avaliacao === 'cumpriu' ? 'Cumpriu' : 'Não Cumpriu'}</strong>
+                    </div>
+                `;
+            }
+        });
+        if(aceitasVisiveis.length === 0) listaAdminAvaliar.innerHTML = '<p>Nenhum serviço aceito pendente nesta visualização.</p>';
+
+        // 3. Atualizar Relatório Mês Atual
+        document.getElementById('metricas-atual').innerHTML = gerarHtmlMetricas(propostasMesAtual);
+        const containerBtnAtual = document.getElementById('btn-download-atual-container');
+        const txtMesAtual = `${nomesMeses[mesAtualIndex]} / ${anoAtual}`;
+        containerBtnAtual.innerHTML = `<button onclick="baixarRelatorioTxt('${txtMesAtual}', ${JSON.stringify(propostasMesAtual).replace(/"/g, '&quot;')})" class="btn-download">📥 Baixar Relatório de ${nomesMeses[mesAtualIndex]}</button>`;
+
+        // 4. Atualizar Relatório de Meses Passados
+        const historicoDiv = document.getElementById('historico-meses-passados');
+        historicoDiv.innerHTML = '';
+        
+        const chavesPassadas = Object.keys(agrupadoMesesPassados);
+        if(chavesPassadas.length === 0) {
+            historicoDiv.innerHTML = '<p style="color: #64748b;">Nenhum histórico de meses anteriores encontrado.</p>';
+        } else {
+            chavesPassadas.forEach(chave => {
+                const dadosMesString = JSON.stringify(agrupadoMesesPassados[chave]).replace(/"/g, '&quot;');
+                historicoDiv.innerHTML += `
+                    <div class="mes-titulo-container">
+                        <div class="mes-titulo">${chave}</div>
+                        <button onclick="baixarRelatorioTxt('${chave}', ${dadosMesString})" class="btn-download">📥 Baixar TXT</button>
+                    </div>
+                    <div class="metrics">
+                        ${gerarHtmlMetricas(agrupadoMesesPassados[chave])}
+                    </div>
+                `;
+            });
+        }
+    }
+
+    // Carregamento Inicial do Servidor ao abrir a página
+    puxarDadosServidor();
+</script>
+
+</body>
+</html>
