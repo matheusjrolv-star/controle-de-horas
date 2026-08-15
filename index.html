@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Casal - Protótipo v2.1 (Multi-dispositivo)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .disabled-overlay {
+            pointer-events: none;
+            opacity: 0.4;
+            filter: grayscale(1);
+        }
+        .tab-btn.active {
+            border-bottom: 3px solid #f43f5e;
+            color: #fb7185;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-3 md:p-6 font-sans">
+
+    <div class="max-w-5xl mx-auto space-y-4">
+        
+        <!-- INDICADOR DE SINCRONIZAÇÃO JSONBIN -->
+        <div id="syncStatus" class="fixed top-2 right-2 bg-slate-800 border border-slate-700 text-slate-400 text-[10px] px-3 py-1 rounded-full shadow-lg z-50 flex items-center gap-1.5">
+            <span id="syncDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            <span id="syncText">Sincronizando...</span>
+        </div>
+
+        <!-- CABEÇALHO COM ABAS E ACESSO DISCRETO -->
+        <header class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-4 shadow-lg">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-xl font-bold text-rose-400">Painel de Estímulo & Gestão</h1>
+                    <p class="text-xs text-slate-400">Versão 2.1 - Sincronização em Tempo Real</p>
+                </div>
+                
+                <!-- ACESSO DISCRETO DO HOMEM -->
+                <div class="flex items-center gap-2 bg-slate-900/80 p-2 rounded-lg border border-slate-700">
+                    <span id="pinPrompt" onclick="desbloquearHomem()" class="cursor-pointer text-slate-500 font-mono text-xs hover:text-slate-300 transition select-none px-1" title="Clique para digitar a senha">....</span>
+                    <span id="statusAcesso" class="text-[10px] px-2 py-0.5 rounded bg-red-950 text-red-400 font-medium">Bloqueado</span>
+                    <button id="btnBloquear" onclick="bloquearHomem()" class="hidden text-xs text-slate-400 underline hover:text-white ml-1">Sair</button>
+                </div>
+            </div>
+
+            <!-- NAVEGAÇÃO POR GUIAS (TABS) -->
+            <nav class="flex border-b border-slate-700 text-sm overflow-x-auto gap-2">
+                <button id="tab-sexo" onclick="mudarGuia('sexo')" class="tab-btn active px-4 py-2 text-slate-400 hover:text-slate-200 transition">
+                    🔥 Sexo
+                </button>
+                <button id="tab-financas" onclick="mudarGuia('financas')" class="tab-btn px-4 py-2 text-slate-400 hover:text-slate-200 transition">
+                    💰 Finanças
+                </button>
+                <button id="tab-historico" onclick="mudarGuia('historico')" class="tab-btn px-4 py-2 text-slate-400 hover:text-slate-200 transition">
+                    📊 Histórico & Desempenho
+                </button>
+                <button id="tab-configuracoes" onclick="mudarGuia('configuracoes')" class="tab-btn px-4 py-2 text-slate-400 hover:text-slate-200 transition hidden">
+                    ⚙️ Configurações
+                </button>
+            </nav>
+        </header>
+
+        <!-- BANNER DE STATUS DE BLOQUEIO POR INATIVIDADE OU PAUSA -->
+        <div id="bannerBloqueioInatividade" class="hidden bg-amber-950/80 border border-amber-600/50 p-3 rounded-xl text-amber-200 text-xs flex justify-between items-center shadow-md">
+            <div class="flex items-center gap-2">
+                <span class="text-base">⛔</span>
+                <div>
+                    <span class="font-bold">Solicitações Bloqueadas no Momento:</span>
+                    <span id="motivoBloqueioInatividade">Período de Inatividade RecorrenteAtivo</span>
+                </div>
+            </div>
+            <button onclick="suspenderInatividadePorHoje()" class="bg-amber-700 hover:bg-amber-600 text-white px-2 py-1 rounded text-[11px] font-medium transition">
+                Liberar Excepcionalmente Hoje
+            </button>
+        </div>
+
+        <!-- ================= GUIAS DA APLICAÇÃO ================= -->
+
+        <!-- 1. GUIA SEXO -->
+        <main id="guia-sexo" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- ÁREA DA MULHER (SOLICITAÇÕES) -->
+                <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4 shadow-lg">
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                        <h2 class="text-lg font-semibold text-rose-300">Solicitação da Mulher</h2>
+                        <span id="badgeDisponibilidade" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-medium">Disponível</span>
+                    </div>
+
+                    <div id="painelSolicitacao" class="space-y-4">
+                        <p class="text-xs text-slate-300">Escolha o tipo de prática desejada:</p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <button id="btnSolicitarSimples" onclick="solicitarPratica('simples')" class="bg-rose-600 hover:bg-rose-500 text-white font-bold py-4 px-2 rounded-xl text-center shadow-lg transition active:scale-95 disabled:opacity-50 disabled:pointer-events-none">
+                                <span class="block text-lg">Simples</span>
+                                <span class="text-xs opacity-80" id="lblPrecoSimples">R$ 35/h</span>
+                            </button>
+                            <button id="btnSolicitarCompleto" onclick="solicitarPratica('completo')" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 px-2 rounded-xl text-center shadow-lg transition active:scale-95 disabled:opacity-50 disabled:pointer-events-none">
+                                <span class="block text-lg">Completo</span>
+                                <span class="text-xs opacity-80" id="lblPrecoCompleto">R$ 50/h</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- BOX DE TEMPORIZADORES / STATUS -->
+                    <div id="statusSolicitacaoBox" class="bg-slate-900 p-4 rounded-lg border border-slate-700 space-y-3 hidden">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                            <span class="text-xs font-bold text-slate-400 uppercase">Status do Pedido:</span>
+                            <span id="txtStatusAto" class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Aguardando Aceite</span>
+                        </div>
+                        
+                        <!-- RELÓGIO DE ACEITE / COOLDOWN DE RECUSA (90 MIN) -->
+                        <div id="boxTimerAceite" class="text-center py-2">
+                            <p class="text-xs text-slate-400" id="lblTimerAceite">Tempo restante para aceite/cooldown:</p>
+                            <p id="timerAceite" class="text-3xl font-mono font-bold text-amber-400">90:00</p>
+                        </div>
+
+                        <!-- RELÓGIO EM TEMPO REAL DO ATO -->
+                        <div id="boxTimerAto" class="text-center py-2 hidden">
+                            <p class="text-xs text-slate-400">Tempo de ato em execução:</p>
+                            <p id="timerAto" class="text-3xl font-mono font-bold text-emerald-400">00:00:00</p>
+                        </div>
+
+                        <!-- RELÓGIO DE PERÍODO REFRATÁRIO (90 MIN APÓS O ATO) -->
+                        <div id="boxTimerRefratario" class="text-center py-2 hidden">
+                            <p class="text-xs text-rose-300 font-medium">🔥 Período Refratário Pós-Ato (Descanso)</p>
+                            <p id="timerRefratario" class="text-3xl font-mono font-bold text-rose-400">90:00</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- CONTROLE DO HOMEM (AÇÕES DO ATO) -->
+                <section id="painelHomemAcoes" class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4 shadow-lg disabled-overlay">
+                    <h2 class="text-lg font-semibold text-sky-300 border-b border-slate-700 pb-2">Controle do Homem</h2>
+                    
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <button id="btnAceitar" onclick="aceitarAto()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-lg text-sm transition">
+                                Aceitar Ato
+                            </button>
+                            <button id="btnRecusar" onclick="recusarAto()" class="bg-red-600 hover:bg-red-500 text-white font-semibold py-3 rounded-lg text-sm transition">
+                                Recusar Ato
+                            </button>
+                        </div>
+                        
+                        <button id="btnFinalizar" onclick="finalizarAto()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3.5 rounded-lg text-sm transition hidden shadow-lg">
+                            ⏹️ Finalizar Ato Sexual
+                        </button>
+
+                        <button id="btnCancelarRefratario" onclick="cancelarRefratarioAntecipado()" class="w-full bg-rose-700 hover:bg-rose-600 text-white font-bold py-3 rounded-lg text-sm transition hidden shadow-lg">
+                            ⚡ Encerrar Período Refratário Antecipadamente
+                        </button>
+                    </div>
+
+                    <hr class="border-slate-700">
+
+                    <p class="text-xs text-slate-400 italic">
+                        * As opções acima e as configurações avançadas requerem o PIN do homem ativado no topo da tela (....).
+                    </p>
+                </section>
+            </div>
+        </main>
+
+        <!-- 2. GUIA FINANÇAS -->
+        <main id="guia-financas" class="space-y-6 hidden">
+            <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-6 shadow-lg">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-700 pb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-emerald-300">Resumo Financeiro & Poupança</h2>
+                        <p class="text-xs text-slate-400">Simulação e cálculo do faturamento mensal conforme regras estabelecidas.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-slate-400">Mês de Referência:</label>
+                        <input type="month" id="filtroMesFinancas" onchange="atualizarDashboard()" class="bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-200">
+                    </div>
+                </div>
+
+                <!-- CARDS DE RESULTADOS FINANCIAL -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-700">
+                        <p class="text-xs text-slate-400">Faturamento Bruto Gerado</p>
+                        <p id="finBruto" class="text-2xl font-bold text-slate-200 mt-1">R$ 0,00</p>
+                        <p class="text-[11px] text-slate-500 mt-1">Calculado sobre horas reais e presumidas.</p>
+                    </div>
+                    
+                    <div class="bg-slate-900/90 p-4 rounded-xl border border-emerald-900/50">
+                        <p class="text-xs text-slate-400">Valor a Pagar no Mês</p>
+                        <p id="finPago" class="text-3xl font-extrabold text-emerald-400 mt-1">R$ 3.000,00</p>
+                        <p class="text-[11px] text-emerald-600/80 mt-1">Garantia mínima (3k) + 50% do excedente.</p>
+                    </div>
+
+                    <div class="bg-slate-900/90 p-4 rounded-xl border border-sky-900/50">
+                        <p class="text-xs text-slate-400">Depósito Poupança do Mês (50% Excedente)</p>
+                        <p id="finPoupanca" class="text-2xl font-bold text-sky-400 mt-1">R$ 0,00</p>
+                        <p id="finPoupancaRendimento" class="text-[11px] text-sky-500 mt-1">Rendimento no mês (+1% a.m.): R$ 0,00</p>
+                    </div>
+                </div>
+
+                <!-- HISTÓRICO ACUMULATIVO DA POUPANÇA -->
+                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-700 space-y-3">
+                    <h3 class="text-sm font-semibold text-sky-300">Evolução Acumulada da Poupança (Rentabilidade de 1% a.m.)</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-700">
+                                <tr>
+                                    <th class="p-2.5">Mês</th>
+                                    <th class="p-2.5">Saldo Anterior</th>
+                                    <th class="p-2.5">Rendimento (+1%)</th>
+                                    <th class="p-2.5">Novo Depósito</th>
+                                    <th class="p-2.5 text-right">Saldo Total Final</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaPoupancaAcumulada" class="divide-y divide-slate-800">
+                                <tr>
+                                    <td colspan="5" class="p-3 text-center text-slate-500">Sem histórico acumulado.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- EXPLICAÇÃO DAS REGRAS FINANCEIRAS -->
+                <div class="bg-slate-900/50 p-4 rounded-lg border border-slate-800 text-xs text-slate-400 space-y-1">
+                    <p class="font-semibold text-slate-300">Regras de Remuneração & Poupança:</p>
+                    <p>• Mínimo Garantido: R$ 3.000,00 mensais mesmo que o faturamento acumulado seja inferior.</p>
+                    <p>• Quando o Faturamento ultrapassa R$ 3.000,00, ela recebe o valor Mínimo + 50% do valor excedente.</p>
+                    <p>• Os outros 50% do excedente entram na Poupança e rendem 1% ao mês acumulativamente sobre o saldo anterior.</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- 3. GUIA HISTÓRICO DE DESEMPENHO -->
+        <main id="guia-historico" class="space-y-6 hidden">
+            <!-- CARDS DE METRICAS DE TEMPO -->
+            <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4 shadow-lg">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-700 pb-2">
+                    <h2 class="text-lg font-semibold text-amber-300">Consolidado do Mês</h2>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-slate-400">Filtrar Mês:</label>
+                        <input type="month" id="filtroMesHistorico" onchange="sincronizarFiltroMes('historico')" class="bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-200">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700">
+                        <p class="text-xs text-slate-400">Simples (Real / Pres.)</p>
+                        <p id="metricaSimples" class="text-base font-bold text-rose-300 mt-1">0h / 0h</p>
+                    </div>
+                    <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700">
+                        <p class="text-xs text-slate-400">Completo (Real / Pres.)</p>
+                        <p id="metricaCompleto" class="text-base font-bold text-purple-300 mt-1">0h / 0h</p>
+                    </div>
+                    <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700">
+                        <p class="text-xs text-slate-400">Tempo Total Presumido</p>
+                        <p id="metricaTotalPresumido" class="text-base font-bold text-amber-300 mt-1">0 h</p>
+                    </div>
+                    <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700">
+                        <p class="text-xs text-slate-400">Tempo Total Real</p>
+                        <p id="metricaTotalReal" class="text-base font-bold text-emerald-300 mt-1">0 h</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TABELA DE LANÇAMENTOS -->
+            <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4 shadow-lg">
+                <h3 class="text-base font-semibold text-slate-200 border-b border-slate-700 pb-2">Extrato Detalhado de Práticas</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-700">
+                            <tr>
+                                <th class="p-3">Data / Hora</th>
+                                <th class="p-3">Prática</th>
+                                <th class="p-3">Natureza</th>
+                                <th class="p-3">Duração</th>
+                                <th class="p-3">Valor/Hora</th>
+                                <th class="p-3 text-right">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaHistorico" class="divide-y divide-slate-700/50">
+                            <tr>
+                                <td colspan="6" class="p-4 text-center text-slate-500">Nenhum registro para este mês.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <!-- 4. GUIA CONFIGURAÇÕES (RESTRITA AO HOMEM) -->
+        <main id="guia-configuracoes" class="space-y-6 hidden">
+            
+            <!-- SIMULADOR E INSERÇÃO MANUAL DE PRÁTICAS -->
+            <section id="painelSimulacao" class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4 shadow-lg">
+                <h2 class="text-lg font-semibold text-amber-300 border-b border-slate-700 pb-2">➕ Lançamento Manual / Simulação de Práticas</h2>
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                    <div>
+                        <label class="text-xs text-slate-400">Ano/Mês Desejado:</label>
+                        <input type="month" id="simMesAno" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-100">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400">Prática:</label>
+                        <select id="simTipo" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm">
+                            <option value="simples">Simples</option>
+                            <option value="completo">Completo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400">Natureza:</label>
+                        <select id="simNatureza" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm">
+                            <option value="real">Real</option>
+                            <option value="presumido">Presumido</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400">Minutos:</label>
+                        <input type="number" id="simMinutos" value="45" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="inserirRegistroManual()" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-1.5 rounded text-sm transition shadow">
+                            Lançar
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- GESTÃO DE HORÁRIOS DE INATIVIDADE -->
+            <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4 shadow-lg">
+                <h2 class="text-lg font-semibold text-sky-300 border-b border-slate-700 pb-2">🌙 Períodos de Inatividade (Trabalho / Sono)</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="space-y-3 md:col-span-1 border-r border-slate-700 pr-0 md:pr-4">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase">Adicionar Regra Semanal</h3>
+                        <div>
+                            <label class="text-xs text-slate-400">Dia da Semana:</label>
+                            <select id="inativDiaSemana" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs">
+                                <option value="1">Segunda-feira</option>
+                                <option value="2">Terça-feira</option>
+                                <option value="3">Quarta-feira</option>
+                                <option value="4">Quinta-feira</option>
+                                <option value="5">Sexta-feira</option>
+                                <option value="6">Sábado</option>
+                                <option value="0">Domingo</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-xs text-slate-400">Hora Início:</label>
+                                <input type="time" id="inativHoraInicio" value="08:00" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-400">Hora Fim:</label>
+                                <input type="time" id="inativHoraFim" value="18:00" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400">Descrição (Ex: Trabalho):</label>
+                            <input type="text" id="inativRotulo" value="Trabalho" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                        </div>
+                        <button onclick="adicionarRegraInatividade()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-1.5 rounded text-xs transition">
+                            Adicionar Horário Restrito
+                        </button>
+                    </div>
+
+                    <div class="space-y-4 md:col-span-2">
+                        <div>
+                            <h3 class="text-xs font-bold text-slate-400 uppercase mb-2">Horários Restritos Configurados</h3>
+                            <div id="listaRegrasInatividade" class="space-y-2 max-h-40 overflow-y-auto">
+                                <p class="text-xs text-slate-500">Nenhum horário cadastrado.</p>
+                            </div>
+                        </div>
+
+                        <hr class="border-slate-700">
+
+                        <div class="space-y-2">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase">Bloqueio / Pausa Manual por Vários Dias</h3>
+                            <p class="text-xs text-slate-400">Desativa todas as solicitações consecutivamente por um número de dias:</p>
+                            <div class="flex gap-2">
+                                <input type="number" id="diasPausa" min="1" value="1" placeholder="Nº de dias" class="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                                <button onclick="ativarPausaDiasSeguidos()" class="bg-rose-700 hover:bg-rose-600 text-white font-semibold px-3 py-1 rounded text-xs transition">
+                                    Bloquear por N Dias
+                                </button>
+                                <button onclick="cancelarPausaDias()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1 rounded text-xs transition">
+                                    Remover Bloqueio Manual
+                                </button>
+                            </div>
+                            <p id="txtStatusPausaDias" class="text-[11px] text-amber-400 font-medium"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VALORES POR HORA -->
+            <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4 shadow-lg">
+                <h2 class="text-lg font-semibold text-slate-200 border-b border-slate-700 pb-2">💲 Atualizar Valor por Hora (Efeito Futuro)</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-slate-400">Simples (R$ / hora):</label>
+                        <input type="number" id="cfgPrecoSimples" value="35" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400">Completo (R$ / hora):</label>
+                        <input type="number" id="cfgPrecoCompleto" value="50" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm">
+                    </div>
+                </div>
+                <button onclick="salvarNovosPrecos()" class="bg-slate-700 hover:bg-slate-600 text-xs text-white font-semibold px-4 py-2 rounded transition">
+                    Salvar Novos Valores
+                </button>
+            </section>
+        </main>
+
+    </div>
+
+    <!-- LOGICA EM JAVASCRIPT INTEGRADA E MULTI-DISPOSITIVO -->
+    <script>
+        const JSONBIN_BIN_ID = "6a80dfbfda38895dfee99f65"; 
+        const JSONBIN_SECRET_KEY = "$2a$10$7dVyC01WDjHJMWMUJIlfL.nhEeLVzYj29Efwck45r8on6hGiq20L6"; 
+
+        // Constantes de Tempo (em segundos)
+        const SEGUNDOS_DECISAO_E_SOLICITACAO = 5400; // 90 minutos
+        const SEGUNDOS_REFRATARIO = 5400;             // 90 minutos
+
+        const PIN_HOMEM = "2123";
+        let homemAutenticado = false;
+        let carregamentoInicialConcluido = false;
+
+        let precos = { simples: 35, completo: 50 };
+        let regrasInatividade = [
+            { id: 1, diaSemana: 1, horaInicio: '08:00', horaFim: '18:00', rotulo: 'Trabalho (Seg)' },
+            { id: 2, diaSemana: 2, horaInicio: '08:00', horaFim: '18:00', rotulo: 'Trabalho (Ter)' },
+            { id: 3, diaSemana: 3, horaInicio: '08:00', horaFim: '18:00', rotulo: 'Trabalho (Qua)' },
+            { id: 4, diaSemana: 4, horaInicio: '08:00', horaFim: '18:00', rotulo: 'Trabalho (Qui)' },
+            { id: 5, diaSemana: 5, horaInicio: '08:00', horaFim: '18:00', rotulo: 'Trabalho (Sex)' }
+        ];
+
+        let dataFimPausaSeguida = null;
+        let dataIsencaoInatividadeHoje = null;
+        let registros = [];
+
+        // Estado do fluxo sincronizado remotamente
+        let estadoAtivo = {
+            status: 'IDLE', // IDLE, AGUARDANDO, RECUSADO_COOLDOWN, EM_ANDAMENTO, REFRATARIO
+            tipo: null,
+            valorHora: 0,
+            inicioTimestamp: null,
+            inicioAceiteTimestamp: null
+        };
+
+        let localTimerLoop = null;
+
+        // --- SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ---
+        async function carregarDadosDoJsonBin() {
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+                    method: 'GET',
+                    headers: { 'X-Master-Key': JSONBIN_SECRET_KEY }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const record = data.record;
+
+                    if (record) {
+                        precos = record.precos || precos;
+                        regrasInatividade = record.regrasInatividade || regrasInatividade;
+                        dataFimPausaSeguida = record.dataFimPausaSeguida ? new Date(record.dataFimPausaSeguida) : null;
+                        dataIsencaoInatividadeHoje = record.dataIsencaoInatividadeHoje || null;
+                        
+                        // Fusão de registros para garantir sem perda de dados entre telas
+                        const registrosRemotos = (record.registros || []).map(r => ({ ...r, data: new Date(r.data) }));
+                        const idsLocais = new Set(registros.map(r => r.id));
+                        registrosRemotos.forEach(r => {
+                            if (!idsLocais.has(r.id)) registros.push(r);
+                        });
+
+                        // Sincroniza Estado do Pedido
+                        if (record.estadoAtivo) {
+                            estadoAtivo = record.estadoAtivo;
+                        }
+
+                        document.getElementById('cfgPrecoSimples').value = precos.simples;
+                        document.getElementById('cfgPrecoCompleto').value = precos.completo;
+                        document.getElementById('lblPrecoSimples').innerText = `R$ ${precos.simples}/h`;
+                        document.getElementById('lblPrecoCompleto').innerText = `R$ ${precos.completo}/h`;
+
+                        renderizarRegrasInatividade();
+                        atualizarDashboard();
+                        verificarRestricoesInatividade();
+                        processarEstadoAtivoInterface();
+                    }
+                    atualizarStatusSync('sucesso', 'Sincronizado');
+                } else {
+                    atualizarStatusSync('erro', 'Erro Conexão');
+                }
+            } catch (error) {
+                console.error("Erro no Sync:", error);
+                atualizarStatusSync('erro', 'Off-line');
+            } finally {
+                carregamentoInicialConcluido = true;
+            }
+        }
+
+        async function salvarDadosNoJsonBin() {
+            if (!carregamentoInicialConcluido) return;
+
+            atualizarStatusSync('sincronizando', 'Salvando...');
+            
+            const payload = {
+                precos,
+                regrasInatividade,
+                dataFimPausaSeguida,
+                dataIsencaoInatividadeHoje,
+                registros,
+                estadoAtivo
+            };
+
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': JSONBIN_SECRET_KEY
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    atualizarStatusSync('sucesso', 'Salvo');
+                } else {
+                    atualizarStatusSync('erro', 'Erro ao salvar');
+                }
+            } catch (error) {
+                console.error("Erro ao salvar:", error);
+                atualizarStatusSync('erro', 'Falha na rede');
+            }
+        }
+
+        function atualizarStatusSync(estado, texto) {
+            const dot = document.getElementById('syncDot');
+            const txt = document.getElementById('syncText');
+            txt.innerText = texto;
+
+            if (estado === 'sincronizando') {
+                dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
+            } else if (estado === 'sucesso') {
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+            } else if (estado === 'erro') {
+                dot.className = "w-2 h-2 rounded-full bg-rose-500";
+            }
+        }
+
+        // INICIALIZAÇÃO
+        window.onload = () => {
+            const hoje = new Date();
+            const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+            
+            document.getElementById('filtroMesFinancas').value = mesAtual;
+            document.getElementById('filtroMesHistorico').value = mesAtual;
+            document.getElementById('simMesAno').value = mesAtual;
+
+            renderizarRegrasInatividade();
+            
+            // Carga Inicial
+            carregarDadosDoJsonBin();
+
+            // Polling recorrente mantido em 5 minutos (300.000 ms) para economizar dados
+            setInterval(carregarDadosDoJsonBin, 300000);
+
+            // Relógio Local (1s) para atualizar timers na tela em tempo real
+            setInterval(() => {
+                verificarRestricoesInatividade();
+                processarEstadoAtivoInterface();
+            }, 1000);
+        };
+
+        // 1. NAVEGAÇÃO POR GUIAS
+        function mudarGuia(nomeGuia) {
+            ['sexo', 'financas', 'historico', 'configuracoes'].forEach(g => {
+                const elGuia = document.getElementById(`guia-${g}`);
+                const elTab = document.getElementById(`tab-${g}`);
+                if (elGuia && elTab) {
+                    if (g === nomeGuia) {
+                        elGuia.classList.remove('hidden');
+                        elTab.classList.add('active');
+                    } else {
+                        elGuia.classList.add('hidden');
+                        elTab.classList.remove('active');
+                    }
+                }
+            });
+        }
+
+        // 2. SEGURANÇA E ACESSO DO HOMEM
+        function desbloquearHomem() {
+            if (homemAutenticado) return;
+            const pin = prompt("Digite o PIN do Homem para desbloquear funções restritas:");
+            if (pin === PIN_HOMEM) {
+                homemAutenticado = true;
+                document.getElementById('statusAcesso').innerText = "Desbloqueado";
+                document.getElementById('statusAcesso').className = "text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-medium";
+                document.getElementById('btnBloquear').classList.remove('hidden');
+                document.getElementById('tab-configuracoes').classList.remove('hidden');
+                document.getElementById('painelHomemAcoes').classList.remove('disabled-overlay');
+            } else if (pin !== null) {
+                alert("PIN Incorreto!");
+            }
+        }
+
+        function bloquearHomem() {
+            homemAutenticado = false;
+            document.getElementById('statusAcesso').innerText = "Bloqueado";
+            document.getElementById('statusAcesso').className = "text-[10px] px-2 py-0.5 rounded bg-red-950 text-red-400 font-medium";
+            document.getElementById('btnBloquear').classList.add('hidden');
+            document.getElementById('tab-configuracoes').classList.add('hidden');
+            mudarGuia('sexo');
+            document.getElementById('painelHomemAcoes').classList.add('disabled-overlay');
+        }
+
+        function salvarNovosPrecos() {
+            const vSimples = parseFloat(document.getElementById('cfgPrecoSimples').value) || 0;
+            const vCompleto = parseFloat(document.getElementById('cfgPrecoCompleto').value) || 0;
+            precos.simples = vSimples;
+            precos.completo = vCompleto;
+            
+            document.getElementById('lblPrecoSimples').innerText = `R$ ${vSimples}/h`;
+            document.getElementById('lblPrecoCompleto').innerText = `R$ ${vCompleto}/h`;
+            
+            salvarDadosNoJsonBin();
+            alert("Valores atualizados com sucesso!");
+        }
+
+        // 3. REGULAGEM DE INATIVIDADE
+        function verificarRestricoesInatividade() {
+            const agora = new Date();
+            const strHoje = agora.toISOString().split('T')[0];
+
+            let motivoBloqueio = null;
+
+            if (dataFimPausaSeguida && agora < dataFimPausaSeguida) {
+                motivoBloqueio = `Bloqueio manual temporário ativo até ${dataFimPausaSeguida.toLocaleDateString()} ${dataFimPausaSeguida.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+            }
+
+            if (!motivoBloqueio && dataIsencaoInatividadeHoje !== strHoje) {
+                const diaSemanaAtual = agora.getDay();
+                const horaMinAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
+
+                const regraConflito = regrasInatividade.find(r => {
+                    return r.diaSemana === diaSemanaAtual && horaMinAtual >= r.horaInicio && horaMinAtual <= r.horaFim;
+                });
+
+                if (regraConflito) {
+                    motivoBloqueio = `Horário restrito de inatividade (${regraConflito.rotulo}: ${regraConflito.horaInicio} às ${regraConflito.horaFim})`;
+                }
+            }
+
+            const banner = document.getElementById('bannerBloqueioInatividade');
+            const btnSimples = document.getElementById('btnSolicitarSimples');
+            const btnCompleto = document.getElementById('btnSolicitarCompleto');
+            const badge = document.getElementById('badgeDisponibilidade');
+
+            if (motivoBloqueio) {
+                banner.classList.remove('hidden');
+                document.getElementById('motivoBloqueioInatividade').innerText = motivoBloqueio;
+                
+                if (estadoAtivo.status === 'IDLE') {
+                    btnSimples.disabled = true;
+                    btnCompleto.disabled = true;
+                    badge.innerText = "Indisponível (Bloqueado)";
+                    badge.className = "text-[10px] px-2 py-0.5 rounded bg-red-950 text-red-400 font-medium";
+                }
+            } else {
+                banner.classList.add('hidden');
+                if (estadoAtivo.status === 'IDLE') {
+                    btnSimples.disabled = false;
+                    btnCompleto.disabled = false;
+                    badge.innerText = "Disponível";
+                    badge.className = "text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-medium";
+                }
+            }
+        }
+
+        function suspenderInatividadePorHoje() {
+            if (!homemAutenticado) {
+                alert("Você precisa estar autenticado com a senha (....) no topo para liberar exceções.");
+                return;
+            }
+            const hoje = new Date().toISOString().split('T')[0];
+            dataIsencaoInatividadeHoje = hoje;
+            salvarDadosNoJsonBin();
+            alert("Inatividade suspensa excepcionalmente para o dia de hoje!");
+            verificarRestricoesInatividade();
+        }
+
+        function adicionarRegraInatividade() {
+            const diaSemana = parseInt(document.getElementById('inativDiaSemana').value);
+            const horaInicio = document.getElementById('inativHoraInicio').value;
+            const horaFim = document.getElementById('inativHoraFim').value;
+            const rotulo = document.getElementById('inativRotulo').value || 'Inatividade';
+
+            if (!horaInicio || !horaFim) {
+                alert("Preencha o horário de início e fim.");
+                return;
+            }
+
+            regrasInatividade.push({
+                id: Date.now(),
+                diaSemana,
+                horaInicio,
+                horaFim,
+                rotulo
+            });
+
+            renderizarRegrasInatividade();
+            verificarRestricoesInatividade();
+            salvarDadosNoJsonBin();
+        }
+
+        function removerRegraInatividade(id) {
+            regrasInatividade = regrasInatividade.filter(r => r.id !== id);
+            renderizarRegrasInatividade();
+            verificarRestricoesInatividade();
+            salvarDadosNoJsonBin();
+        }
+
+        function renderizarRegrasInatividade() {
+            const container = document.getElementById('listaRegrasInatividade');
+            const diasNome = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
+            if (regrasInatividade.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500">Nenhum horário cadastrado.</p>`;
+                return;
+            }
+
+            container.innerHTML = regrasInatividade.map(r => `
+                <div class="flex justify-between items-center bg-slate-900 p-2 rounded border border-slate-700 text-xs">
+                    <div>
+                        <span class="font-bold text-sky-300">${diasNome[r.diaSemana]}:</span> 
+                        <span class="text-slate-300">${r.horaInicio} às ${r.horaFim}</span> 
+                        <span class="text-slate-500">(${r.rotulo})</span>
+                    </div>
+                    <button onclick="removerRegraInatividade(${r.id})" class="text-red-400 hover:text-red-300 font-bold px-1">✕</button>
+                </div>
+            `).join('');
+        }
+
+        function ativarPausaDiasSeguidos() {
+            const numDias = parseInt(document.getElementById('diasPausa').value) || 1;
+            const dataFim = new Date();
+            dataFim.setDate(dataFim.getDate() + numDias);
+            
+            dataFimPausaSeguida = dataFim;
+            document.getElementById('txtStatusPausaDias').innerText = `Bloqueio manual ativo até ${dataFim.toLocaleDateString()} às ${dataFim.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+            
+            salvarDadosNoJsonBin();
+            alert(`Pausa manual ativada por ${numDias} dia(s).`);
+            verificarRestricoesInatividade();
+        }
+
+        function cancelarPausaDias() {
+            dataFimPausaSeguida = null;
+            document.getElementById('txtStatusPausaDias').innerText = "";
+            salvarDadosNoJsonBin();
+            alert("Bloqueio manual por dias removido!");
+            verificarRestricoesInatividade();
+        }
+
+        // 4. LÓGICA DE MÁQUINA DE ESTADOS SINCRONIZADA EM TEMPO REAL
+        function processarEstadoAtivoInterface() {
+            const box = document.getElementById('statusSolicitacaoBox');
+            const txtStatus = document.getElementById('txtStatusAto');
+            const boxAceite = document.getElementById('boxTimerAceite');
+            const boxAto = document.getElementById('boxTimerAto');
+            const boxRefratario = document.getElementById('boxTimerRefratario');
+
+            const btnSimples = document.getElementById('btnSolicitarSimples');
+            const btnCompleto = document.getElementById('btnSolicitarCompleto');
+
+            const btnAceitar = document.getElementById('btnAceitar');
+            const btnRecusar = document.getElementById('btnRecusar');
+            const btnFinalizar = document.getElementById('btnFinalizar');
+            const btnCancelarRefratario = document.getElementById('btnCancelarRefratario');
+
+            const agora = Date.now();
+
+            if (estadoAtivo.status === 'IDLE') {
+                box.classList.add('hidden');
+                btnAceitar.classList.add('hidden');
+                btnRecusar.classList.add('hidden');
+                btnFinalizar.classList.add('hidden');
+                btnCancelarRefratario.classList.add('hidden');
+                return;
+            }
+
+            box.classList.remove('hidden');
+            btnSimples.disabled = true;
+            btnCompleto.disabled = true;
+
+            // 1. SOLICITAÇÃO AGUARDANDO ACEITE OU COOLDOWN RECUSADO (90 MIN)
+            if (estadoAtivo.status === 'AGUARDANDO' || estadoAtivo.status === 'RECUSADO_COOLDOWN') {
+                boxAceite.classList.remove('hidden');
+                boxAto.classList.add('hidden');
+                boxRefratario.classList.add('hidden');
+                btnFinalizar.classList.add('hidden');
+                btnCancelarRefratario.classList.add('hidden');
+
+                const decorridoSeg = Math.floor((agora - estadoAtivo.inicioTimestamp) / 1000);
+                const restanteSeg = Math.max(0, SEGUNDOS_DECISAO_E_SOLICITACAO - decorridoSeg);
+
+                const m = Math.floor(restanteSeg / 60);
+                const s = restanteSeg % 60;
+                document.getElementById('timerAceite').innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+                if (estadoAtivo.status === 'AGUARDANDO') {
+                    txtStatus.innerText = `Solicitado (${estadoAtivo.tipo.toUpperCase()}) - Aguardando Aceite`;
+                    txtStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300";
+                    document.getElementById('lblTimerAceite').innerText = "Tempo restante para aceite/cooldown:";
+
+                    btnAceitar.classList.remove('hidden');
+                    btnRecusar.classList.remove('hidden');
+
+                    if (restanteSeg <= 0) {
+                        // Tempo expirado -> Presumido Automático
+                        salvarRegistro(estadoAtivo.tipo, 'presumido', 30, estadoAtivo.valorHora, new Date());
+                        iniciarPeriodoRefratario();
+                    }
+                } else { // RECUSADO_COOLDOWN
+                    txtStatus.innerText = "Recusado - Cooldown de Solicitação Ativo";
+                    txtStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-red-500/20 text-red-300";
+                    document.getElementById('lblTimerAceite').innerText = "Tempo de cooldown restante para nova solicitação:";
+
+                    btnAceitar.classList.add('hidden');
+                    btnRecusar.classList.add('hidden');
+
+                    if (restanteSeg <= 0) {
+                        estadoAtivo.status = 'IDLE';
+                        salvarDadosNoJsonBin();
+                    }
+                }
+            }
+
+            // 2. ATO EM ANDAMENTO
+            else if (estadoAtivo.status === 'EM_ANDAMENTO') {
+                boxAceite.classList.add('hidden');
+                boxAto.classList.remove('hidden');
+                boxRefratario.classList.add('hidden');
+
+                btnAceitar.classList.add('hidden');
+                btnRecusar.classList.add('hidden');
+                btnFinalizar.classList.remove('hidden');
+                btnCancelarRefratario.classList.add('hidden');
+
+                txtStatus.innerText = `Em Andamento (${estadoAtivo.tipo.toUpperCase()})`;
+                txtStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300";
+
+                const decorridoSeg = Math.floor((agora - estadoAtivo.inicioAceiteTimestamp) / 1000);
+                const h = Math.floor(decorridoSeg / 3600);
+                const m = Math.floor((decorridoSeg % 3600) / 60);
+                const s = decorridoSeg % 60;
+                document.getElementById('timerAto').innerText = 
+                    `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            }
+
+            // 3. PERÍODO REFRATÁRIO (90 MIN)
+            else if (estadoAtivo.status === 'REFRATARIO') {
+                boxAceite.classList.add('hidden');
+                boxAto.classList.add('hidden');
+                boxRefratario.classList.remove('hidden');
+
+                btnAceitar.classList.add('hidden');
+                btnRecusar.classList.add('hidden');
+                btnFinalizar.classList.add('hidden');
+                btnCancelarRefratario.classList.remove('hidden');
+
+                txtStatus.innerText = "Descanso / Refratário Pós-Ato";
+                txtStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300";
+
+                const decorridoSeg = Math.floor((agora - estadoAtivo.inicioTimestamp) / 1000);
+                const restanteSeg = Math.max(0, SEGUNDOS_REFRATARIO - decorridoSeg);
+
+                const m = Math.floor(restanteSeg / 60);
+                const s = restanteSeg % 60;
+                document.getElementById('timerRefratario').innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+                if (restanteSeg <= 0) {
+                    estadoAtivo.status = 'IDLE';
+                    salvarDadosNoJsonBin();
+                }
+            }
+        }
+
+        // AÇÕES DO FLUXO
+        function solicitarPratica(tipo) {
+            if (estadoAtivo.status !== 'IDLE') {
+                alert("Já existe uma solicitação ou período de descanso ativo.");
+                return;
+            }
+
+            estadoAtivo = {
+                status: 'AGUARDANDO',
+                tipo: tipo,
+                valorHora: precos[tipo],
+                inicioTimestamp: Date.now(),
+                inicioAceiteTimestamp: null
+            };
+
+            salvarDadosNoJsonBin();
+            processarEstadoAtivoInterface();
+        }
+
+        function aceitarAto() {
+            if (estadoAtivo.status !== 'AGUARDANDO') return;
+
+            estadoAtivo.status = 'EM_ANDAMENTO';
+            estadoAtivo.inicioAceiteTimestamp = Date.now();
+
+            salvarDadosNoJsonBin();
+            processarEstadoAtivoInterface();
+        }
+
+        function recusarAto() {
+            if (estadoAtivo.status !== 'AGUARDANDO') return;
+            
+            salvarRegistro(estadoAtivo.tipo, 'presumido', 30, estadoAtivo.valorHora, new Date());
+            
+            estadoAtivo.status = 'RECUSADO_COOLDOWN';
+            salvarDadosNoJsonBin();
+            processarEstadoAtivoInterface();
+            
+            alert("Prática recusada. Gravado 30m presumidos. Cronômetro mantido como cooldown.");
+        }
+
+        function finalizarAto() {
+            if (estadoAtivo.status !== 'EM_ANDAMENTO') return;
+
+            const agora = Date.now();
+            const segundosAtivos = Math.floor((agora - estadoAtivo.inicioAceiteTimestamp) / 1000);
+            const minutosReais = Math.max(1, Math.round(segundosAtivos / 60));
+
+            salvarRegistro(estadoAtivo.tipo, 'real', minutosReais, estadoAtivo.valorHora, new Date());
+
+            alert(`Ato finalizado! Registrado: ${minutosReais} minuto(s) reais.
+Iniciando período refratário obrigatório de 90 minutos.`);
+
+            iniciarPeriodoRefratario();
+        }
+
+        function iniciarPeriodoRefratario() {
+            estadoAtivo = {
+                status: 'REFRATARIO',
+                tipo: null,
+                valorHora: 0,
+                inicioTimestamp: Date.now(),
+                inicioAceiteTimestamp: null
+            };
+            salvarDadosNoJsonBin();
+            processarEstadoAtivoInterface();
+        }
+
+        function cancelarRefratarioAntecipado() {
+            if (!homemAutenticado) {
+                alert("Apenas o homem autenticado (PIN ....) pode encerrar antecipadamente o período refratário.");
+                return;
+            }
+            if (confirm("Deseja encerrar antecipadamente o período refratário de descanso?")) {
+                estadoAtivo.status = 'IDLE';
+                salvarDadosNoJsonBin();
+                processarEstadoAtivoInterface();
+            }
+        }
+
+        // 5. REGISTROS, HISTÓRICO, POUPANÇA E EXTRATO
+        function salvarRegistro(tipo, natureza, minutos, valorHora, dataRegistro) {
+            registros.push({
+                id: Date.now(),
+                data: dataRegistro,
+                tipo: tipo,
+                natureza: natureza,
+                minutos: minutos,
+                valorHora: valorHora
+            });
+            atualizarDashboard();
+            salvarDadosNoJsonBin();
+        }
+
+        function inserirRegistroManual() {
+            const simMesAno = document.getElementById('simMesAno').value;
+            const tipo = document.getElementById('simTipo').value;
+            const natureza = document.getElementById('simNatureza').value;
+            const minutos = parseInt(document.getElementById('simMinutos').value) || 0;
+            const valorHora = precos[tipo];
+
+            if (!simMesAno) {
+                alert("Selecione o Ano/Mês desejado.");
+                return;
+            }
+            if (minutos <= 0) {
+                alert("Insira um tempo válido em minutos.");
+                return;
+            }
+
+            const partes = simMesAno.split('-');
+            const dataCustom = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, 15, 12, 0, 0);
+
+            salvarRegistro(tipo, natureza, minutos, valorHora, dataCustom);
+            alert(`Registro manual de ${minutos}m (${tipo}/${natureza}) incluído com sucesso no mês ${simMesAno}!`);
+        }
+
+        function sincronizarFiltroMes(origem) {
+            if (origem === 'historico') {
+                document.getElementById('filtroMesFinancas').value = document.getElementById('filtroMesHistorico').value;
+            } else {
+                document.getElementById('filtroMesHistorico').value = document.getElementById('filtroMesFinancas').value;
+            }
+            atualizarDashboard();
+        }
+
+        // CALCULO CRONOLÓGICO DA POUPANÇA MÊS A MÊS
+        function calcularHistoricoPoupancaAcumulada() {
+            const MINIMO_GARANTIDO = 3000;
+            const faturamentoPorMes = {};
+
+            registros.forEach(r => {
+                const anoMes = `${r.data.getFullYear()}-${String(r.data.getMonth() + 1).padStart(2, '0')}`;
+                const valorGerado = (r.minutos / 60) * r.valorHora;
+                faturamentoPorMes[anoMes] = (faturamentoPorMes[anoMes] || 0) + valorGerado;
+            });
+
+            const mesesOrdenados = Object.keys(faturamentoPorMes).sort();
+            
+            let saldoAcumulado = 0;
+            const resultadoPorMes = {};
+
+            mesesOrdenados.forEach(mes => {
+                const faturamento = faturamentoPorMes[mes];
+                let depositoMes = 0;
+
+                if (faturamento > MINIMO_GARANTIDO) {
+                    depositoMes = (faturamento - MINIMO_GARANTIDO) / 2;
+                }
+
+                const saldoAnterior = saldoAcumulado;
+                const rendimentoMes = saldoAnterior * 0.01;
+                saldoAcumulado = saldoAnterior + rendimentoMes + depositoMes;
+
+                resultadoPorMes[mes] = {
+                    saldoAnterior,
+                    rendimentoMes,
+                    depositoMes,
+                    saldoFinal: saldoAcumulado
+                };
+            });
+
+            return resultadoPorMes;
+        }
+
+        function atualizarDashboard() {
+            const filtroMes = document.getElementById('filtroMesFinancas').value;
+            if (!filtroMes) return;
+
+            let minSimplesReal = 0, minSimplesPres = 0;
+            let minCompletoReal = 0, minCompletoPres = 0;
+            let faturamentoTotalMes = 0;
+
+            const tabela = document.getElementById('tabelaHistorico');
+            let linhasHTML = "";
+
+            const registrosFiltrados = registros.filter(r => {
+                const mesRegistro = `${r.data.getFullYear()}-${String(r.data.getMonth() + 1).padStart(2, '0')}`;
+                return mesRegistro === filtroMes;
+            }).sort((a,b) => b.data - a.data);
+
+            registrosFiltrados.forEach(r => {
+                const horas = r.minutos / 60;
+                const valorGerado = horas * r.valorHora;
+                faturamentoTotalMes += valorGerado;
+
+                if (r.tipo === 'simples') {
+                    if (r.natureza === 'real') minSimplesReal += r.minutos;
+                    else minSimplesPres += r.minutos;
+                } else if (r.tipo === 'completo') {
+                    if (r.natureza === 'real') minCompletoReal += r.minutos;
+                    else minCompletoPres += r.minutos;
+                }
+
+                const dataFormatada = `${r.data.toLocaleDateString()} ${r.data.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+                const badgeNat = r.natureza === 'real' 
+                    ? `<span class="bg-emerald-950 text-emerald-400 font-medium px-2 py-0.5 rounded">Real</span>`
+                    : `<span class="bg-amber-950 text-amber-400 font-medium px-2 py-0.5 rounded">Presumido</span>`;
+
+                linhasHTML += `
+                    <tr class="hover:bg-slate-700/30">
+                        <td class="p-3 font-mono">${dataFormatada}</td>
+                        <td class="p-3 font-semibold uppercase text-slate-200">${r.tipo}</td>
+                        <td class="p-3">${badgeNat}</td>
+                        <td class="p-3">${r.minutos} min (${horas.toFixed(2)}h)</td>
+                        <td class="p-3">R$ ${r.valorHora}/h</td>
+                        <td class="p-3 text-right font-bold text-slate-100">R$ ${valorGerado.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            if (registrosFiltrados.length === 0) {
+                tabela.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">Nenhum registro encontrado para este mês.</td></tr>`;
+            } else {
+                tabela.innerHTML = linhasHTML;
+            }
+
+            // Métrica de Tempos
+            document.getElementById('metricaSimples').innerText = 
+                `${(minSimplesReal/60).toFixed(1)}h / ${(minSimplesPres/60).toFixed(1)}h`;
+            
+            document.getElementById('metricaCompleto').innerText = 
+                `${(minCompletoReal/60).toFixed(1)}h / ${(minCompletoPres/60).toFixed(1)}h`;
+
+            document.getElementById('metricaTotalPresumido').innerText = 
+                `${((minSimplesPres + minCompletoPres)/60).toFixed(1)} h`;
+
+            document.getElementById('metricaTotalReal').innerText = 
+                `${((minSimplesReal + minCompletoReal)/60).toFixed(1)} h`;
+
+            // Lógica Financeira
+            const MINIMO_GARANTIDO = 3000;
+            let valorAPagar = MINIMO_GARANTIDO;
+            
+            if (faturamentoTotalMes > MINIMO_GARANTIDO) {
+                const excedente = faturamentoTotalMes - MINIMO_GARANTIDO;
+                valorAPagar = MINIMO_GARANTIDO + (excedente / 2);
+            }
+
+            const historicoPoupanca = calcularHistoricoPoupancaAcumulada();
+            const dadosPoupancaMesAtual = historicoPoupanca[filtroMes] || { saldoAnterior: 0, rendimentoMes: 0, depositoMes: 0, saldoFinal: 0 };
+
+            document.getElementById('finBruto').innerText = `R$ ${faturamentoTotalMes.toFixed(2)}`;
+            document.getElementById('finPago').innerText = `R$ ${valorAPagar.toFixed(2)}`;
+            document.getElementById('finPoupanca').innerText = `R$ ${dadosPoupancaMesAtual.depositoMes.toFixed(2)}`;
+            document.getElementById('finPoupancaRendimento').innerText = `Rendimento no mês (+1% a.m.): R$ ${dadosPoupancaMesAtual.rendimentoMes.toFixed(2)}`;
+
+            // Renderiza Tabela da Poupança
+            const tbPoupanca = document.getElementById('tabelaPoupancaAcumulada');
+            const mesesPoupanca = Object.keys(historicoPoupanca).sort();
+
+            if (mesesPoupanca.length === 0) {
+                tbPoupanca.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-slate-500">Sem depósitos registrados na poupança.</td></tr>`;
+            } else {
+                tbPoupanca.innerHTML = mesesPoupanca.map(m => {
+                    const p = historicoPoupanca[m];
+                    const eMesAtual = m === filtroMes ? 'bg-sky-950/40 font-semibold' : 'hover:bg-slate-800/50';
+                    return `
+                        <tr class="${eMesAtual}">
+                            <td class="p-2.5">${m}</td>
+                            <td class="p-2.5">R$ ${p.saldoAnterior.toFixed(2)}</td>
+                            <td class="p-2.5 text-emerald-400">+ R$ ${p.rendimentoMes.toFixed(2)}</td>
+                            <td class="p-2.5 text-sky-400">+ R$ ${p.depositoMes.toFixed(2)}</td>
+                            <td class="p-2.5 text-right font-bold text-sky-300">R$ ${p.saldoFinal.toFixed(2)}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+    </script>
+</body>
+</html>
