@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerenciador de Convivência</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background-color: var(--card-bg);
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 1.2rem;
+      color: var(--accent);
+    }
+
+    .secret-input {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #334155;
+      width: 50px;
+      text-align: center;
+      font-size: 0.8rem;
+      outline: none;
+      transition: all 0.3s;
+    }
+
+    .secret-input:focus {
+      border-color: var(--border);
+      color: var(--text-muted);
+    }
+
+    nav {
+      display: flex;
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 0.75rem;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    main {
+      padding: 1rem;
+      flex: 1;
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border-radius: 8px;
+      padding: 1.2rem;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border);
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .status-online { background-color: rgba(34, 197, 94, 0.2); color: var(--success); }
+    .status-offline { background-color: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+    .btn {
+      width: 100%;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      background-color: var(--accent);
+      color: #000;
+      margin-top: 0.5rem;
+      transition: background 0.2s;
+    }
+
+    .btn:hover { background-color: var(--accent-hover); }
+    .btn-danger { background-color: var(--danger); color: #fff; }
+    .btn-success { background-color: var(--success); color: #fff; }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .stat-item {
+      background-color: rgba(0,0,0,0.2);
+      padding: 0.75rem;
+      border-radius: 6px;
+    }
+
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); }
+    .stat-val { font-size: 1.1rem; font-weight: bold; margin-top: 0.25rem; }
+
+    .list {
+      list-style: none;
+      margin-top: 0.5rem;
+    }
+
+    .list-item {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.25rem;
+      margin-bottom: 0.75rem;
+      background-color: var(--bg-color);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      border-radius: 4px;
+    }
+
+    label { font-size: 0.85rem; color: var(--text-muted); }
+
+    .month-picker {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .month-picker button {
+      width: auto;
+      padding: 0.25rem 0.75rem;
+    }
+
+    .sync-status {
+      font-size: 0.7rem;
+      text-align: center;
+      color: var(--text-muted);
+      padding: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Gerenciador</h1>
+    <input type="password" id="secretPass" class="secret-input" placeholder="•••" oninput="checkPass()">
+  </header>
+
+  <nav>
+    <button class="tab-btn active" onclick="switchTab('disponibilidade')">Disponibilidade</button>
+    <button class="tab-btn" onclick="switchTab('financeiro')">Financeiro</button>
+    <button class="tab-btn hidden" id="tab-atividade" onclick="switchTab('atividade')">Atividade</button>
+    <button class="tab-btn hidden" id="tab-configuracoes" onclick="switchTab('configuracoes')">Configurações</button>
+  </nav>
+
+  <main>
+    <!-- GUIA DISPONIBILIDADE -->
+    <section id="guia-disponibilidade">
+      <div class="month-picker">
+        <button class="btn" style="width:auto;" onclick="mudarMes(-1)">&lt;</button>
+        <span class="labelMesAno" style="font-weight:bold;">--/----</span>
+        <button class="btn" style="width:auto;" onclick="mudarMes(1)">&gt;</button>
+      </div>
+
+      <div class="card">
+        <div id="statusBadge" class="status-badge status-offline">Indisponível</div>
+        <h2 id="timerDisp">00:00:00</h2>
+        <div id="motivoIndisponivel" class="stat-label" style="margin-top:0.5rem; color: var(--danger);"></div>
+        <button id="btnToggleDisp" class="btn btn-success" onclick="toggleDisponibilidade()">Ficar Disponível</button>
+      </div>
+
+      <div class="card">
+        <h3>Produção do Mês</h3>
+        <div class="stat-grid">
+          <div class="stat-item">
+            <div class="stat-label">Disponibilidade</div>
+            <div class="stat-val" id="dispHorasMes">0h</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Sexo Efetivo</div>
+            <div class="stat-val" id="sexoHorasMes">0h</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Histórico de Encontros</h3>
+        <ul class="list" id="listaEncontros"></ul>
+      </div>
+    </section>
+
+    <!-- GUIA FINANCEIRO -->
+    <section id="guia-financeiro" class="hidden">
+      <div class="month-picker">
+        <button class="btn" style="width:auto;" onclick="mudarMes(-1)">&lt;</button>
+        <span class="labelMesAno" style="font-weight:bold;">--/----</span>
+        <button class="btn" style="width:auto;" onclick="mudarMes(1)">&gt;</button>
+      </div>
+
+      <div class="card">
+        <h3>Resumo Financeiro</h3>
+        <div class="stat-grid">
+          <div class="stat-item">
+            <div class="stat-label">Garantido Base</div>
+            <div class="stat-val">R$ 3.200,00</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Bônus no Salário (30%)</div>
+            <div class="stat-val" id="finBonusSalario">R$ 0,00</div>
+          </div>
+          <div class="stat-item" style="grid-column: span 2;">
+            <div class="stat-label" style="color:var(--success); font-weight:bold;">Total Salário a Receber</div>
+            <div class="stat-val" id="finTotalSalario" style="color:var(--success);">R$ 3.200,00</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Poupança (70% Bônus)</h3>
+        <div class="stat-grid">
+          <div class="stat-item">
+            <div class="stat-label">Rendimento Mês (0.5%)</div>
+            <div class="stat-val" id="finRendimento">R$ 0,00</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Saldo em Poupança</div>
+            <div class="stat-val" id="finSaldoPoupanca">R$ 0,00</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Retiradas do Mês</h3>
+        <ul class="list" id="listaRetiradas"></ul>
+      </div>
+    </section>
+
+    <!-- GUIA ATIVIDADE (OCULTA) -->
+    <section id="guia-atividade" class="hidden">
+      <div class="card">
+        <h3>Controle de Relação</h3>
+        <div id="statusAtividade" style="margin-bottom:1rem; font-weight:bold;">Status: Nenhuma relação em andamento</div>
+        <button id="btnAtividade" class="btn btn-success" onclick="toggleAtividade()">Iniciar Relação Sexualmente Efetiva</button>
+      </div>
+    </section>
+
+    <!-- GUIA CONFIGURAÇÕES (OCULTA) -->
+    <section id="guia-configuracoes" class="hidden">
+      <div class="card">
+        <h3>Horários Fixos de Indisponibilidade</h3>
+        <label>Hora Início Sono</label>
+        <input type="time" id="cfgSonoInicio" value="23:00">
+        <label>Hora Fim Sono</label>
+        <input type="time" id="cfgSonoFim" value="07:00">
+
+        <label>Hora Início Trabalho</label>
+        <input type="time" id="cfgTrabInicio" value="09:00">
+        <label>Hora Fim Trabalho</label>
+        <input type="time" id="cfgTrabFim" value="17:00">
+
+        <button class="btn" onclick="salvarConfiguracoes()">Salvar Configurações</button>
+      </div>
+
+      <div class="card">
+        <h3>Exceções do Dia</h3>
+        <button class="btn" style="background-color:#eab308; color:#000;" onclick="anteciparDisponibilidade()">Antecipar Disponibilidade Hoje</button>
+      </div>
+
+      <div class="card">
+        <h3>Incluir Horas Manuais</h3>
+        <label>Ano</label>
+        <input type="number" id="incAno" value="2026">
+        <label>Mês (1-12)</label>
+        <input type="number" id="incMes" min="1" max="12" value="9">
+        <label>Horas de Sexo a Adicionar</label>
+        <input type="number" id="incHoras" step="0.1" placeholder="Ex: 2.5">
+        <button class="btn" onclick="incluirHorasManuais()">Incluir Horas</button>
+      </div>
+
+      <div class="card">
+        <h3>Lançar Retirada da Poupança</h3>
+        <label>Valor (R$)</label>
+        <input type="number" id="retValor" step="0.01">
+        <label>Motivo</label>
+        <input type="text" id="retMotivo">
+        <button class="btn btn-danger" onclick="lançarRetirada()">Efetuar Retirada</button>
+      </div>
+
+      <div class="card">
+        <h3>Backup e Restauração</h3>
+        <button class="btn" style="background-color:#0284c7; color:#fff;" onclick="fazerBackup()">Fazer Backup (.txt)</button>
+        <br><br>
+        <label>Restaurar Servidor via Texto</label>
+        <textarea id="txtBackup" rows="4" placeholder="Cole o conteúdo do arquivo txt aqui..."></textarea>
+        <button class="btn" style="background-color:#16a34a; color:#fff;" onclick="restaurarBackup()">Restaurar Servidor</button>
+      </div>
+
+      <div class="card">
+        <h3>Administração</h3>
+        <button class="btn btn-danger" onclick="resetarServidor()">Resetar Servidor (Apagar Tudo)</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="sync-status" id="syncStatus">Dados sincronizados com o servidor</div>
+
+  <script>
+    // CONFIGURAÇÃO DO JSONBIN.IO - Substitua com suas credenciais
+    const JSONBIN_BIN_ID = '6a9f9a4effd5d16053ebd08c';
+    const JSONBIN_API_KEY = '$2a$10$7dVyC01WDjHJMWMUJIlfL.nhEeLVzYj29Efwck45r8on6hGiq20L6'; 
+    const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+
+    // ESTRUTURA DE DADOS INICIAL
+    const dbPadrao = {
+      config: {
+        sonoInicio: "23:00",
+        sonoFim: "07:00",
+        trabInicio: "09:00",
+        trabFim: "17:00",
+        antecipadoHoje: false
+      },
+      disponibilidade: {
+        ativa: false,
+        inicioAtual: null
+      },
+      atividadeAtiva: {
+        emAndamento: false,
+        inicio: null
+      },
+      historicoDisponibilidade: [], // {inicio, fim}
+      historicoEncontros: [],      // {inicio, fim, duracaoSegundos}
+      retiradas: []                 // {data, valor, motivo}
+    };
+
+    let db = JSON.parse(JSON.stringify(dbPadrao));
+    let mesVisualizado = new Date();
+
+    // COMUNICAÇÃO JSONBIN (Sem polling automatico)
+    async function carregarDados() {
+      setSyncStatus("Carregando...");
+      try {
+        const response = await fetch(JSONBIN_URL + '/latest', {
+          headers: { 'X-Master-Key': JSONBIN_API_KEY }
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.record && resData.record.config) {
+            db = resData.record;
+          }
+          setSyncStatus("Dados atualizados");
+        } else {
+          setSyncStatus("Erro ao carregar (usando padrão)");
+        }
+      } catch (e) {
+        setSyncStatus("Erro de conexão");
+      }
+      atualizarUI();
+    }
+
+    async function salvarDados() {
+      setSyncStatus("Salvando no servidor...");
+      try {
+        const response = await fetch(JSONBIN_URL, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_API_KEY
+          },
+          body: JSON.stringify(db)
+        });
+        if (response.ok) {
+          setSyncStatus("Salvo com sucesso!");
+        } else {
+          setSyncStatus("Erro ao salvar no servidor");
+        }
+      } catch (e) {
+        setSyncStatus("Erro de conexão ao salvar");
+      }
+      atualizarUI();
+    }
+
+    function setSyncStatus(msg) {
+      document.getElementById('syncStatus').innerText = msg;
+    }
+
+    // NAVEGAÇÃO & SENHA
+    function switchTab(tabId) {
+      document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      
+      document.getElementById(`guia-${tabId}`).classList.remove('hidden');
+      event.target.classList.add('active');
+    }
+
+    function checkPass() {
+      const val = document.getElementById('secretPass').value;
+      const tabAtiv = document.getElementById('tab-atividade');
+      const tabCfg = document.getElementById('tab-configuracoes');
+
+      if (val === '2123') {
+        tabAtiv.classList.remove('hidden');
+        tabCfg.classList.remove('hidden');
+      } else {
+        tabAtiv.classList.add('hidden');
+        tabCfg.classList.add('hidden');
+        if (!document.getElementById('guia-atividade').classList.contains('hidden') ||
+            !document.getElementById('guia-configuracoes').classList.contains('hidden')) {
+          switchTab('disponibilidade');
+        }
+      }
+    }
+
+    // REGRA DE HORÁRIOS E ALERTAS
+    function verificarDisponibilidadePermitida() {
+      if (db.config.antecipadoHoje) return { ok: true, motivo: "" };
+
+      const agora = new Date();
+      const horaStr = agora.toTimeString().substring(0, 5);
+
+      const emIntervalo = (atual, inicio, fim) => {
+        if (inicio < fim) return atual >= inicio && atual < fim;
+        return atual >= inicio || atual < fim; // Atravessa meia noite
+      };
+
+      if (emIntervalo(horaStr, db.config.sonoInicio, db.config.sonoFim)) {
+        return { ok: false, motivo: "Horário de descanso/sono." };
+      }
+      if (emIntervalo(horaStr, db.config.trabInicio, db.config.trabFim)) {
+        return { ok: false, motivo: "Horário de trabalho configurado." };
+      }
+
+      return { ok: true, motivo: "" };
+    }
+
+    // GUIA DISPONIBILIDADE
+    function toggleDisponibilidade() {
+      const checagem = verificarDisponibilidadePermitida();
+      
+      if (!db.disponibilidade.ativa) {
+        if (!checagem.ok) {
+          alert(`Não é possível ficar disponível agora: ${checagem.motivo}`);
+          return;
+        }
+        db.disponibilidade.ativa = true;
+        db.disponibilidade.inicioAtual = new Date().toISOString();
+      } else {
+        db.disponibilidade.ativa = false;
+        db.historicoDisponibilidade.push({
+          inicio: db.disponibilidade.inicioAtual,
+          fim: new Date().toISOString()
+        });
+        db.disponibilidade.inicioAtual = null;
+      }
+      salvarDados();
+    }
+
+    // GUIA ATIVIDADE (Acesso Restrito)
+    function toggleAtividade() {
+      if (!db.atividadeAtiva.emAndamento) {
+        db.atividadeAtiva.emAndamento = true;
+        db.atividadeAtiva.inicio = new Date().toISOString();
+      } else {
+        const inicio = new Date(db.atividadeAtiva.inicio);
+        const fim = new Date();
+        const duracao = Math.floor((fim - inicio) / 1000);
+
+        db.historicoEncontros.push({
+          inicio: db.atividadeAtiva.inicio,
+          fim: fim.toISOString(),
+          duracaoSegundos: duracao
+        });
+
+        db.atividadeAtiva.emAndamento = false;
+        db.atividadeAtiva.inicio = null;
+      }
+      salvarDados();
+    }
+
+    // GUIA CONFIGURAÇÕES
+    function salvarConfiguracoes() {
+      db.config.sonoInicio = document.getElementById('cfgSonoInicio').value;
+      db.config.sonoFim = document.getElementById('cfgSonoFim').value;
+      db.config.trabInicio = document.getElementById('cfgTrabInicio').value;
+      db.config.trabFim = document.getElementById('cfgTrabFim').value;
+      salvarDados();
+      alert("Configurações salvas.");
+    }
+
+    function anteciparDisponibilidade() {
+      db.config.antecipadoHoje = true;
+      salvarDados();
+      alert("Disponibilidade liberada para o dia de hoje!");
+    }
+
+    function incluirHorasManuais() {
+      const ano = parseInt(document.getElementById('incAno').value);
+      const mes = parseInt(document.getElementById('incMes').value) - 1;
+      const horas = parseFloat(document.getElementById('incHoras').value);
+
+      if (isNaN(ano) || isNaN(mes) || isNaN(horas) || horas <= 0 || mes < 0 || mes > 11) {
+        alert("Preencha dados válidos para incluir horas.");
+        return;
+      }
+
+      const dataInic = new Date(ano, mes, 1, 12, 0, 0);
+      const duracaoSegundos = Math.floor(horas * 3600);
+      const dataFim = new Date(dataInic.getTime() + duracaoSegundos * 1000);
+
+      db.historicoEncontros.push({
+        inicio: dataInic.toISOString(),
+        fim: dataFim.toISOString(),
+        duracaoSegundos: duracaoSegundos
+      });
+
+      document.getElementById('incHoras').value = '';
+      salvarDados();
+      alert("Horas adicionadas com sucesso!");
+    }
+
+    function lançarRetirada() {
+      const val = parseFloat(document.getElementById('retValor').value);
+      const motivo = document.getElementById('retMotivo').value;
+
+      if (!val || val <= 0 || !motivo) {
+        alert("Preencha o valor e o motivo da retirada.");
+        return;
+      }
+
+      db.retiradas.push({
+        data: new Date().toISOString(),
+        valor: val,
+        motivo: motivo
+      });
+
+      document.getElementById('retValor').value = '';
+      document.getElementById('retMotivo').value = '';
+      salvarDados();
+      alert("Retirada lançada.");
+    }
+
+    function resetarServidor() {
+      if (confirm("Tem certeza que deseja apagar TODOS os dados do servidor? Esta ação não pode ser desfeita.")) {
+        db = JSON.parse(JSON.stringify(dbPadrao));
+        salvarDados();
+        alert("Servidor resetado com sucesso.");
+      }
+    }
+
+    function fazerBackup() {
+      const dataStr = JSON.stringify(db, null, 2);
+      const agora = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const nomeArq = `backup_gerenciamento_${agora.getFullYear()}-${pad(agora.getMonth()+1)}-${pad(agora.getDate())}_${pad(agora.getHours())}-${pad(agora.getMinutes())}-${pad(agora.getSeconds())}.txt`;
+      
+      const blob = new Blob([dataStr], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nomeArq;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function restaurarBackup() {
+      const conteudo = document.getElementById('txtBackup').value.trim();
+      if (!conteudo) {
+        alert("Cole o conteúdo do arquivo de backup na caixa de texto.");
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(conteudo);
+        if (parsed && parsed.config && Array.isArray(parsed.historicoEncontros)) {
+          db = parsed;
+          salvarDados();
+          document.getElementById('txtBackup').value = '';
+          alert("Servidor restaurado com sucesso!");
+        } else {
+          alert("Formato de backup inválido.");
+        }
+      } catch (e) {
+        alert("Erro ao ler o código de backup. Verifique se o texto está correto.");
+      }
+    }
+
+    // NAVEGAÇÃO MENSAL
+    function mudarMes(delta) {
+      mesVisualizado.setMonth(mesVisualizado.getMonth() + delta);
+      atualizarUI();
+    }
+
+    // CÁLCULOS E ATUALIZAÇÃO DE INTERFACE
+    function atualizarUI() {
+      // 1. Status de Disponibilidade
+      const statusBadge = document.getElementById('statusBadge');
+      const btnToggle = document.getElementById('btnToggleDisp');
+      const motivoDiv = document.getElementById('motivoIndisponivel');
+      const checagem = verificarDisponibilidadePermitida();
+
+      if (db.disponibilidade.ativa) {
+        statusBadge.innerText = "Disponível";
+        statusBadge.className = "status-badge status-online";
+        btnToggle.innerText = "Sair da Disponibilidade";
+        btnToggle.className = "btn btn-danger";
+        motivoDiv.innerText = "";
+      } else {
+        statusBadge.innerText = "Indisponível";
+        statusBadge.className = "status-badge status-offline";
+        btnToggle.innerText = "Ficar Disponível";
+        btnToggle.className = "btn btn-success";
+        motivoDiv.innerText = checagem.ok ? "" : `Motivo: ${checagem.motivo}`;
+      }
+
+      // Config inputs
+      document.getElementById('cfgSonoInicio').value = db.config.sonoInicio;
+      document.getElementById('cfgSonoFim').value = db.config.sonoFim;
+      document.getElementById('cfgTrabInicio').value = db.config.trabInicio;
+      document.getElementById('cfgTrabFim').value = db.config.trabFim;
+
+      // Status Atividade
+      const statusAtiv = document.getElementById('statusAtividade');
+      const btnAtiv = document.getElementById('btnAtividade');
+      if (db.atividadeAtiva.emAndamento) {
+        statusAtiv.innerText = "Status: Relação em andamento desde " + new Date(db.atividadeAtiva.inicio).toLocaleTimeString();
+        btnAtiv.innerText = "Finalizar Relação";
+        btnAtiv.className = "btn btn-danger";
+      } else {
+        statusAtiv.innerText = "Status: Nenhuma relação em andamento";
+        btnAtiv.innerText = "Iniciar Relação Sexualmente Efetiva";
+        btnAtiv.className = "btn btn-success";
+      }
+
+      // Cálculos Mensais
+      const anoVisualizado = mesVisualizado.getFullYear();
+      const mesNum = mesVisualizado.getMonth();
+      const mesFormatado = `${mesVisualizado.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`;
+
+      document.querySelectorAll('.labelMesAno').forEach(el => {
+        el.innerText = mesFormatado;
+      });
+
+      // Filtrar Encontros do Mês Visualizado
+      const encontrosDoMes = db.historicoEncontros.filter(e => {
+        const d = new Date(e.inicio);
+        return d.getFullYear() === anoVisualizado && d.getMonth() === mesNum;
+      });
+
+      let totalSegundosSexoMes = encontrosDoMes.reduce((acc, e) => acc + e.duracaoSegundos, 0);
+      let horasSexoMes = totalSegundosSexoMes / 3600;
+
+      // Renderizar Histórico Encontros (Filtro pelo Mês Visualizado)
+      const listaEnc = document.getElementById('listaEncontros');
+      listaEnc.innerHTML = '';
+      encontrosDoMes.slice().reverse().forEach(e => {
+        const d = new Date(e.inicio);
+        const li = document.createElement('li');
+        li.className = 'list-item';
+        const mins = Math.floor(e.duracaoSegundos / 60);
+        li.innerHTML = `<span>${d.toLocaleDateString()} ${d.toLocaleTimeString().substring(0,5)}</span> <strong>${mins} min (${(e.duracaoSegundos/3600).toFixed(1)}h)</strong>`;
+        listaEnc.appendChild(li);
+      });
+
+      // Calcular disponibilidade do mês (horas)
+      const dispDoMes = db.historicoDisponibilidade.filter(e => {
+        const d = new Date(e.inicio);
+        return d.getFullYear() === anoVisualizado && d.getMonth() === mesNum;
+      });
+      let totalSegundosDispMes = dispDoMes.reduce((acc, e) => acc + ((new Date(e.fim) - new Date(e.inicio))/1000), 0);
+      let horasDispMes = totalSegundosDispMes / 3600;
+
+      document.getElementById('dispHorasMes').innerText = `${horasDispMes.toFixed(1)}h`;
+      document.getElementById('sexoHorasMes').innerText = `${horasSexoMes.toFixed(1)}h`;
+
+      // Regras Financeiras (50 reais/hora de sexo)
+      let faturamentoTotal = horasSexoMes * 50;
+      let excedente = Math.max(0, faturamentoTotal - 3200);
+      
+      let bonusSalario = excedente * 0.30;
+      let totalSalario = 3200 + bonusSalario;
+
+      // Cálculo de Saldo Acumulado da Poupança até o Mês Visualizado
+      let saldoPoupanca = 0;
+      let rendimentoMesAtual = 0;
+
+      let dataCursor = new Date(2026, 0, 1);
+      while (dataCursor <= mesVisualizado) {
+        let cAno = dataCursor.getFullYear();
+        let cMes = dataCursor.getMonth();
+
+        // Rendimento de 0.5% sobre o saldo do mês anterior
+        rendimentoMesAtual = saldoPoupanca * 0.005;
+        saldoPoupanca += rendimentoMesAtual;
+
+        // Calc produçao do mes cursor
+        let encs = db.historicoEncontros.filter(e => {
+          const d = new Date(e.inicio);
+          return d.getFullYear() === cAno && d.getMonth() === cMes;
+        });
+        let hSexo = encs.reduce((acc, e) => acc + e.duracaoSegundos, 0) / 3600;
+        let exc = Math.max(0, (hSexo * 50) - 3200);
+        saldoPoupanca += exc * 0.70;
+
+        // Subtrai retiradas do mes cursor
+        let rets = db.retiradas.filter(r => {
+          const d = new Date(r.data);
+          return d.getFullYear() === cAno && d.getMonth() === cMes;
+        });
+        let totalRets = rets.reduce((acc, r) => acc + r.valor, 0);
+        saldoPoupanca -= totalRets;
+
+        dataCursor.setMonth(dataCursor.getMonth() + 1);
+      }
+
+      document.getElementById('finBonusSalario').innerText = `R$ ${bonusSalario.toFixed(2)}`;
+      document.getElementById('finTotalSalario').innerText = `R$ ${totalSalario.toFixed(2)}`;
+      document.getElementById('finRendimento').innerText = `R$ ${rendimentoMesAtual.toFixed(2)}`;
+      document.getElementById('finSaldoPoupanca').innerText = `R$ ${Math.max(0, saldoPoupanca).toFixed(2)}`;
+
+      // Lista de Retiradas no mês
+      const listaRet = document.getElementById('listaRetiradas');
+      listaRet.innerHTML = '';
+      const retiradasMes = db.retiradas.filter(r => {
+        const d = new Date(r.data);
+        return d.getFullYear() === anoVisualizado && d.getMonth() === mesNum;
+      });
+
+      retiradasMes.forEach(r => {
+        const d = new Date(r.data);
+        const li = document.createElement('li');
+        li.className = 'list-item';
+        li.innerHTML = `<span>${d.toLocaleDateString()} - ${r.motivo}</span> <strong style="color:var(--danger)">- R$ ${r.valor.toFixed(2)}</strong>`;
+        listaRet.appendChild(li);
+      });
+    }
+
+    // Cronômetro na tela principal
+    setInterval(() => {
+      if (db.disponibilidade.ativa && db.disponibilidade.inicioAtual) {
+        const segs = Math.floor((new Date() - new Date(db.disponibilidade.inicioAtual)) / 1000);
+        const h = String(Math.floor(segs / 3600)).padStart(2, '0');
+        const m = String(Math.floor((segs % 3600) / 60)).padStart(2, '0');
+        const s = String(segs % 60).padStart(2, '0');
+        document.getElementById('timerDisp').innerText = `${h}:${m}:${s}`;
+      } else {
+        document.getElementById('timerDisp').innerText = "00:00:00";
+      }
+    }, 1000);
+
+    // Reset de exceção de horário no novo dia
+    let ultimoDia = new Date().getDate();
+    setInterval(() => {
+      let hoje = new Date().getDate();
+      if (hoje !== ultimoDia) {
+        ultimoDia = hoje;
+        db.config.antecipadoHoje = false;
+        salvarDados();
+      }
+    }, 60000);
+
+    // Inicialização
+    window.onload = () => {
+      carregarDados();
+    };
+  </script>
+</body>
+</html>
