@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Cartões & Conta v3.4</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+            user-select: none;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-100 flex justify-center text-slate-800 pb-24">
+
+    <!-- Container Principal Responsivo (Mobile & Desktop) -->
+    <div class="w-full max-w-5xl bg-slate-50 shadow-xl border-x border-slate-200/60 min-h-screen flex flex-col">
+
+        <!-- Header Principal -->
+        <header class="bg-white px-4 md:px-8 py-4 border-b border-slate-200/80 flex flex-wrap justify-between items-center sticky top-0 z-20 gap-3">
+            <div class="flex items-center gap-3">
+                <h1 id="page-title" class="text-xl md:text-2xl font-extrabold text-slate-800">Meus Cartões</h1>
+                <!-- Indicador de Status de Sincronização -->
+                <div id="sync-status" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 transition-all">
+                    <i data-lucide="cloud-check" class="w-3.5 h-3.5"></i>
+                    <span id="sync-status-text">Sincronizado</span>
+                </div>
+            </div>
+
+            <!-- Seletor de Mês/Ano -->
+            <div id="month-selector" class="flex items-center gap-3 bg-slate-100 px-4 py-1.5 rounded-full text-sm font-semibold text-slate-700 shadow-inner">
+                <button onclick="changeMonth(-1)" class="hover:text-sky-600 transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                <span id="current-month-label" class="capitalize min-w-[110px] text-center">...</span>
+                <button onclick="changeMonth(1)" class="hover:text-sky-600 transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+            </div>
+        </header>
+
+        <!-- CONTEÚDO PRINCIPAL (Telas Dinâmicas) -->
+        <main class="flex-1 p-4 md:p-8 overflow-y-auto">
+
+            <!-- TELA 1: CARTÕES -->
+            <section id="view-cartoes" class="space-y-6">
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60 grid grid-cols-2 gap-4">
+                    <div class="border-r border-slate-100 pr-2">
+                        <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Limite Total</span>
+                        <h3 id="resumo-limite-total" class="text-lg md:text-xl font-bold text-slate-700">R$ 0,00</h3>
+                    </div>
+                    <div class="pl-2">
+                        <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Total Livre p/ Gastos</span>
+                        <h3 id="resumo-limite-livre" class="text-lg md:text-xl font-bold text-sky-500">R$ 0,00</h3>
+                    </div>
+                </div>
+
+                <div id="lista-cartoes" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                
+                <button onclick="abrirModalCartao()" class="w-full md:w-auto md:px-8 bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 px-6 rounded-full flex items-center justify-center gap-2 shadow-md transition mx-auto">
+                    <i data-lucide="credit-card" class="w-5 h-5"></i> ADICIONAR CARTÃO
+                </button>
+            </section>
+
+            <!-- TELA 2: DESPESAS (CARTÃO) -->
+            <section id="view-despesas" class="hidden space-y-6">
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total de Compras Realizadas no Mês</span>
+                        <h2 id="total-despesas-mes" class="text-2xl md:text-3xl font-bold text-sky-500">R$ 0,00</h2>
+                    </div>
+                    <i data-lucide="trending-down" class="w-8 h-8 text-rose-400"></i>
+                </div>
+                <div class="space-y-3">
+                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Histórico de Compras (Cartão)</h3>
+                    <div id="lista-despesas" class="space-y-3"></div>
+                </div>
+                <button onclick="abrirModalDespesa()" class="w-full md:w-auto md:px-8 bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 px-6 rounded-full flex items-center justify-center gap-2 shadow-md transition mx-auto">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i> ADICIONAR DESPESA
+                </button>
+            </section>
+
+            <!-- TELA 3: CONTA BANCÁRIA -->
+            <section id="view-conta" class="hidden space-y-6">
+                <div class="bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl p-6 text-white shadow-lg space-y-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-xs text-slate-400 uppercase tracking-wider block">Saldo Geral em Conta</span>
+                            <h2 id="conta-saldo-atual" class="text-3xl font-extrabold text-emerald-400">R$ 0,00</h2>
+                        </div>
+                        <div class="text-right bg-white/10 px-3 py-1.5 rounded-lg border border-white/10">
+                            <span class="text-[9px] text-slate-300 block uppercase">Rendimento</span>
+                            <span id="conta-rendimento-badge" class="text-xs font-bold text-emerald-300">0.00% a.m.</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 pt-3 border-t border-slate-700/50 text-xs">
+                        <div>
+                            <span class="text-slate-400 block">Entradas (Mês)</span>
+                            <span id="conta-total-entradas" class="font-bold text-emerald-400 text-sm">R$ 0,00</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block">Saídas (Mês)</span>
+                            <span id="conta-total-saidas" class="font-bold text-rose-400 text-sm">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="abrirModalMovimentacao('entrada')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition">
+                        <i data-lucide="arrow-up-right" class="w-4 h-4"></i> DEPOSITAR / GANHO
+                    </button>
+                    <button onclick="abrirModalMovimentacao('saida')" class="bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition">
+                        <i data-lucide="arrow-down-left" class="w-4 h-4"></i> PAGO EM DINHEIRO/PIX
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Extrato da Conta</h3>
+                    <div id="lista-movimentacoes-conta" class="space-y-3"></div>
+                </div>
+            </section>
+
+            <!-- TELA ORÇAMENTO (ANUAL) -->
+            <section id="view-orcamento" class="hidden space-y-6">
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Teto Planejado Anual</span>
+                        <h2 id="total-orcamento-mes" class="text-2xl font-bold text-indigo-600">R$ 0,00</h2>
+                    </div>
+                    <div>
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider text-right block">Consumido no Ano</span>
+                        <h2 id="total-gasto-orcamento-mes" class="text-2xl font-bold text-rose-500 text-right">R$ 0,00</h2>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Metas Anuais por Categoria</h3>
+                        <span class="text-[10px] text-slate-400">Acumulado do ano atual</span>
+                    </div>
+                    <div id="lista-orcamentos" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+            </section>
+
+            <!-- TELA 4: CONSOLIDADO & GRÁFICO -->
+            <section id="view-consolidado" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60 flex flex-col items-center justify-center">
+                        <h3 class="text-sm font-bold text-slate-700 uppercase mb-4 tracking-wider text-center">Distribuição de Gastos do Mês</h3>
+                        <div class="w-full max-w-[240px] pb-2">
+                            <canvas id="chartCategorias"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60 space-y-3 flex flex-col justify-center">
+                        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Resumo Geral Operacional</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between border-b border-slate-100 pb-2">
+                                <span class="text-slate-500">Gasto Total Cartões (Faturas do Mês):</span>
+                                <span id="consolidado-cartao" class="font-bold text-slate-800">R$ 0,00</span>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-100 pb-2">
+                                <span class="text-slate-500">Gasto Total à Vista (Conta Corrente):</span>
+                                <span id="consolidado-conta" class="font-bold text-slate-800">R$ 0,00</span>
+                            </div>
+                            <div class="flex justify-between pt-1">
+                                <span class="font-bold text-slate-700">Despesa Geral Consolidada:</span>
+                                <span id="consolidado-geral-total" class="font-black text-rose-500 text-base">R$ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Gasto Absoluto por Categoria</h3>
+                    <div id="lista-consolidado-categorias" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                </div>
+            </section>
+
+            <!-- TELA 5: FATURAS -->
+            <section id="view-faturas" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="lista-faturas"></div>
+            </section>
+
+            <!-- TELA 6: AJUSTES & SERVIÇOS -->
+            <section id="view-ajustes" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60 space-y-4">
+                        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="trending-up" class="text-emerald-500"></i> Rendimento da Conta Corrente
+                        </h3>
+                        <div class="space-y-2">
+                            <label class="block text-xs font-semibold text-slate-500 uppercase">Selecione a Taxa Mensal (% ao mês)</label>
+                            <select id="ajuste-rendimento-indice" onchange="salvarIndiceRendimento(this.value)" class="w-full border border-slate-200 rounded-xl p-2.5 text-sm bg-slate-50 font-medium text-slate-700">
+                                <option value="0.0">Sem Rendimento (0.0% a.m.)</option>
+                                <option value="0.4">Poupança Estimada (0.40% a.m.)</option>
+                                <option value="0.65">80% do CDI (0.65% a.m.)</option>
+                                <option value="0.82">100% do CDI (0.82% a.m.)</option>
+                                <option value="1.0">Taxa Fixa Promocional (1.00% a.m.)</option>
+                                <option value="1.2">Investimento Avançado (1.20% a.m.)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60 space-y-4">
+                        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i data-lucide="tag" class="text-sky-500"></i> Categorias do Sistema</h3>
+                        <form id="form-nova-categoria" onsubmit="adicionarCategoria(event)" class="flex gap-2">
+                            <input type="text" id="nova-cat-nome" placeholder="Nova Categoria" required class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <input type="color" id="nova-cat-cor" value="#0284c7" class="w-10 h-9 p-0.5 border border-slate-200 rounded-xl cursor-pointer">
+                            <button type="submit" class="bg-sky-500 text-white font-bold px-3 rounded-xl text-sm hover:bg-sky-600"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                        </form>
+                        <div id="lista-gerenciar-categorias" class="grid grid-cols-2 gap-2 pt-2 text-xs"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60 space-y-4">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i data-lucide="cloud" class="text-sky-500"></i> Sincronização em Nuvem</h3>
+                    <p class="text-xs text-slate-500">Seu aplicativo salva automaticamente na nuvem sempre que você altera qualquer dado. Se estiver sem sinal, ele salva no seu celular e envia assim que reestabelecer conexão.</p>
+                    <div class="flex gap-2 pt-2">
+                        <button onclick="sincronizarAutomatico(true)" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm transition"><i data-lucide="upload-cloud" class="w-5 h-5"></i> Forçar Sincronização Agora</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60">
+                    <h3 class="text-sm font-bold text-slate-700 mb-3">Dados Locais</h3>
+                    <button onclick="limparTudo()" class="w-full bg-rose-500 hover:bg-rose-600 text-white py-2.5 rounded-lg text-sm font-semibold transition">Resetar Todos os Dados</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- NAVEGAÇÃO INFERIOR -->
+        <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-5xl bg-white border-t border-slate-200 flex justify-around py-3 z-20 shadow-lg">
+            <button onclick="switchTab('cartoes')" id="nav-cartoes" class="flex flex-col items-center gap-1 text-sky-500 font-semibold text-[10px] w-12">
+                <i data-lucide="credit-card" class="w-5 h-5"></i><span>Cartões</span>
+            </button>
+            <button onclick="switchTab('despesas')" id="nav-despesas" class="flex flex-col items-center gap-1 text-slate-400 font-semibold text-[10px] w-12">
+                <i data-lucide="receipt" class="w-5 h-5"></i><span>Despesas</span>
+            </button>
+            <button onclick="switchTab('conta')" id="nav-conta" class="flex flex-col items-center gap-1 text-slate-400 font-semibold text-[10px] w-12">
+                <i data-lucide="wallet" class="w-5 h-5"></i><span>Conta</span>
+            </button>
+            <button onclick="switchTab('orcamento')" id="nav-orcamento" class="flex flex-col items-center gap-1 text-slate-400 font-semibold text-[10px] w-12">
+                <i data-lucide="target" class="w-5 h-5"></i><span>Orçamento</span>
+            </button>
+            <button onclick="switchTab('consolidado')" id="nav-consolidado" class="flex flex-col items-center gap-1 text-slate-400 font-semibold text-[10px] w-12">
+                <i data-lucide="pie-chart" class="w-5 h-5"></i><span>Gráfico</span>
+            </button>
+            <button onclick="switchTab('faturas')" id="nav-faturas" class="flex flex-col items-center gap-1 text-slate-400 font-semibold text-[10px] w-12">
+                <i data-lucide="file-text" class="w-5 h-5"></i><span>Faturas</span>
+            </button>
+            <button onclick="switchTab('ajustes')" id="nav-ajustes" class="flex flex-col items-center gap-1 text-slate-400 font-semibold text-[10px] w-12">
+                <i data-lucide="settings" class="w-5 h-5"></i><span>Ajustes</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- MODAL: CADASTRAR/EDITAR CARTÃO -->
+    <div id="modal-cartao" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end md:items-center justify-center p-0 md:p-4">
+        <div class="bg-white w-full max-w-md rounded-t-3xl md:rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-800" id="modal-cartao-title">Adicionar Novo Cartão</h3>
+                <button onclick="fecharModalCartao()"><i data-lucide="x" class="text-slate-400"></i></button>
+            </div>
+            <form id="form-cartao" onsubmit="salvarCartao(event)" class="space-y-3 text-sm">
+                <input type="hidden" id="card-id">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Apelido do Cartão</label>
+                    <input type="text" id="card-name" placeholder="Ex: Nubank, Visa Infinite" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Nome do Titular</label>
+                    <input type="text" id="card-holder" placeholder="Ex: MATHEUS DE OLIVEIRA" required class="w-full border border-slate-200 rounded-lg p-2.5 uppercase">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Limite (R$)</label>
+                        <input type="number" step="0.01" id="card-limit" placeholder="1000.00" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Cor do Cartão</label>
+                        <select id="card-color" class="w-full border border-slate-200 rounded-lg p-2.5">
+                            <option value="from-blue-700 to-indigo-900">Azul Escuro</option>
+                            <option value="from-purple-700 to-indigo-950">Roxo</option>
+                            <option value="from-emerald-600 to-teal-800">Verde</option>
+                            <option value="from-rose-600 to-red-800">Vermelho</option>
+                            <option value="from-neutral-800 to-neutral-950">Preto (Carbono)</option>
+                            <option value="from-amber-500 to-orange-700">Laranja/Ouro</option>
+                            <option value="from-pink-600 to-purple-800">Rosa/Magenta</option>
+                            <option value="from-cyan-600 to-blue-800">Ciano</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Fechamento</label>
+                        <input type="number" min="1" max="31" id="card-close" placeholder="Ex: 5" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Vencimento</label>
+                        <input type="number" min="1" max="31" id="card-pay" placeholder="Ex: 12" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 rounded-xl mt-2">SALVAR CARTÃO</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ALTERAR EXCEÇÃO DE FECHAMENTO -->
+    <div id="modal-excecao" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end md:items-center justify-center p-0 md:p-4">
+        <div class="bg-white w-full max-w-md rounded-t-3xl md:rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-800">Ajustar Fechamento deste Mês</h3>
+                <button onclick="fecharModalExcecao()"><i data-lucide="x" class="text-slate-400"></i></button>
+            </div>
+            <form id="form-excecao" onsubmit="salvarExcecao(event)" class="space-y-3 text-sm">
+                <input type="hidden" id="excecao-card-id">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Novo Dia de Fechamento</label>
+                    <input type="number" min="1" max="31" id="excecao-dia" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                </div>
+                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl mt-2">DEFINIR APENAS PARA ESTE MÊS</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADICIONAR/EDITAR DESPESA -->
+    <div id="modal-despesa" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end md:items-center justify-center p-0 md:p-4">
+        <div class="bg-white w-full max-w-md rounded-t-3xl md:rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-800" id="modal-despesa-title">Adicionar Despesa</h3>
+                <button onclick="fecharModalDespesa()"><i data-lucide="x" class="text-slate-400"></i></button>
+            </div>
+            <form id="form-despesa" onsubmit="salvarDespesa(event)" class="space-y-3 text-sm">
+                <input type="hidden" id="expense-id">
+                <input type="hidden" id="expense-group-id">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Cartão de Crédito</label>
+                    <select id="expense-card" required class="w-full border border-slate-200 rounded-lg p-2.5"></select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Título / Estabelecimento</label>
+                    <input type="text" id="expense-title" placeholder="Ex: Supermercado" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Valor Total (R$)</label>
+                        <input type="number" step="0.01" id="expense-amount" placeholder="150.00" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                    </div>
+                    <div id="container-parcelas">
+                        <label class="block font-semibold text-slate-600 mb-1">Parcelas</label>
+                        <select id="expense-installments" class="w-full border border-slate-200 rounded-lg p-2.5">
+                            <option value="1">À vista</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Data da Compra</label>
+                        <input type="date" id="expense-date" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Categoria</label>
+                        <select id="expense-category" required class="w-full border border-slate-200 rounded-lg p-2.5"></select>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 rounded-xl mt-2">SALVAR COMPRA NO CARTÃO</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: MOVIMENTAÇÃO CONTA -->
+    <div id="modal-conta" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end md:items-center justify-center p-0 md:p-4">
+        <div class="bg-white w-full max-w-md rounded-t-3xl md:rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-800" id="modal-conta-title">Movimentação de Conta</h3>
+                <button onclick="fecharModalMovimentacao()"><i data-lucide="x" class="text-slate-400"></i></button>
+            </div>
+            <form id="form-conta" onsubmit="salvarMovimentacaoConta(event)" class="space-y-3 text-sm">
+                <input type="hidden" id="conta-mov-id">
+                <input type="hidden" id="conta-mov-tipo">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Descrição / Título</label>
+                    <input type="text" id="conta-mov-titulo" placeholder="Ex: Salário" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Valor (R$)</label>
+                        <input type="number" step="0.01" id="conta-mov-valor" placeholder="150.00" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Data</label>
+                        <input type="date" id="conta-mov-data" required class="w-full border border-slate-200 rounded-lg p-2.5">
+                    </div>
+                </div>
+                <div id="container-conta-categoria">
+                    <label class="block font-semibold text-slate-600 mb-1">Categoria</label>
+                    <select id="conta-mov-categoria" class="w-full border border-slate-200 rounded-lg p-2.5"></select>
+                </div>
+                <button type="submit" id="btn-salvar-conta" class="w-full text-white font-bold py-3 rounded-xl mt-2">CONFIRMAR REGISTRO</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Unificado -->
+    <script>
+        const JSONBIN_ID = "6aa44413ac6210605ac1b41d"; 
+        const JSONBIN_KEY = "$2a$10$7dVyC01WDjHJMWMUJIlfL.nhEeLVzYj29Efwck45r8on6hGiq20L6"; 
+
+        let cartoes = JSON.parse(localStorage.getItem('cartoes_v2')) || [];
+        let despesas = JSON.parse(localStorage.getItem('despesas_v2')) || [];
+        let faturasPagas = JSON.parse(localStorage.getItem('faturas_pagas_v2')) || {}; 
+        let contaMovimentacoes = JSON.parse(localStorage.getItem('conta_movimentacoes_v3')) || [];
+        
+        let categoriasApp = JSON.parse(localStorage.getItem('categorias_app_v3')) || [
+            { nome: 'Alimentação', cor: '#ef4444' },
+            { nome: 'Transporte', cor: '#3b82f6' },
+            { nome: 'Lazer', cor: '#10b981' },
+            { nome: 'Saúde', cor: '#a855f7' },
+            { nome: 'Moradia', cor: '#f59e0b' },
+            { nome: 'Geral', cor: '#64748b' }
+        ];
+
+        let orcamentosApp = JSON.parse(localStorage.getItem('orcamentos_app_v1')) || {};
+        let taxaRendimentoMensal = parseFloat(localStorage.getItem('taxa_rendimento_v3')) || 0.0;
+
+        // INICIALIZAÇÃO NO MÊS/ANO ATUAL (Requisito 2)
+        let currentDate = new Date();
+        currentDate.setDate(1); // garante início do mês atual
+
+        const mesesExtenso = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+        let chartInstance = null;
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const selectInstallments = document.getElementById('expense-installments');
+            if (selectInstallments) {
+                for(let i = 2; i <= 24; i++) {
+                    let opt = document.createElement('option');
+                    opt.value = i; opt.innerText = i + 'x';
+                    selectInstallments.appendChild(opt);
+                }
+            }
+            updateMonthLabel();
+            atualizarSelectsCategorias();
+            document.getElementById('ajuste-rendimento-indice').value = taxaRendimentoMensal.toString();
+            switchTab('cartoes');
+            
+            // Tenta carregar os dados mais recentes do servidor ao iniciar
+            await carregarDadosServidor();
+        });
+
+        // ATUALIZAÇÃO DO INDICADOR DE STATUS
+        function setSyncStatus(status, mensagem = "") {
+            const container = document.getElementById('sync-status');
+            const text = document.getElementById('sync-status-text');
+            if (!container || !text) return;
+
+            if (status === 'saving') {
+                container.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-600 border border-sky-200 transition-all";
+                container.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin"></i><span>Salvando...</span>`;
+            } else if (status === 'success') {
+                container.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 transition-all";
+                container.innerHTML = `<i data-lucide="cloud-check" class="w-3.5 h-3.5"></i><span>Sincronizado</span>`;
+            } else if (status === 'offline') {
+                container.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 transition-all";
+                container.innerHTML = `<i data-lucide="cloud-off" class="w-3.5 h-3.5"></i><span>Salvo Local</span>`;
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // SALVA LOCALMENTE E SINCRONIZA AUTOMATICAMENTE (Requisito 1)
+        async function salvarEAutoSincronizar() {
+            // Guarda sempre no LocalStorage primeiro como garantia offline
+            localStorage.setItem('cartoes_v2', JSON.stringify(cartoes));
+            localStorage.setItem('despesas_v2', JSON.stringify(despesas));
+            localStorage.setItem('faturas_pagas_v2', JSON.stringify(faturasPagas));
+            localStorage.setItem('conta_movimentacoes_v3', JSON.stringify(contaMovimentacoes));
+            localStorage.setItem('categorias_app_v3', JSON.stringify(categoriasApp));
+            localStorage.setItem('orcamentos_app_v1', JSON.stringify(orcamentosApp));
+            localStorage.setItem('taxa_rendimento_v3', taxaRendimentoMensal.toString());
+
+            // Tenta enviar para a nuvem em background
+            await sincronizarAutomatico();
+        }
+
+        async function sincronizarAutomatico(comAlerta = false) {
+            if (!JSONBIN_ID || !JSONBIN_KEY || JSONBIN_ID.includes('...') || JSONBIN_KEY.includes('...')) {
+                setSyncStatus('offline');
+                return;
+            }
+
+            setSyncStatus('saving');
+            const payload = { cartoes, despesas, faturasPagas, contaMovimentacoes, categoriasApp, orcamentosApp, taxaRendimentoMensal };
+
+            try {
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    setSyncStatus('success');
+                    if (comAlerta) alert("Dados sincronizados na nuvem com sucesso!");
+                } else {
+                    setSyncStatus('offline');
+                }
+            } catch (err) {
+                console.warn("Sem comunicação com o servidor. Salvo localmente.", err);
+                setSyncStatus('offline');
+            }
+        }
+
+        async function carregarDadosServidor() {
+            if (!JSONBIN_ID || !JSONBIN_KEY || JSONBIN_ID.includes('...') || JSONBIN_KEY.includes('...')) return;
+            setSyncStatus('saving');
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`, {
+                    method: 'GET',
+                    headers: { 'X-Master-Key': JSONBIN_KEY }
+                });
+                if (!response.ok) {
+                    setSyncStatus('offline');
+                    return;
+                }
+                const resData = await response.json();
+                const dadosServidor = resData.record;
+
+                if (dadosServidor) {
+                    cartoes = dadosServidor.cartoes || [];
+                    despesas = dadosServidor.despesas || [];
+                    faturasPagas = dadosServidor.faturasPagas || {};
+                    contaMovimentacoes = dadosServidor.contaMovimentacoes || [];
+                    categoriasApp = dadosServidor.categoriasApp || categoriasApp;
+                    orcamentosApp = dadosServidor.orcamentosApp || {};
+                    taxaRendimentoMensal = dadosServidor.taxaRendimentoMensal !== undefined ? dadosServidor.taxaRendimentoMensal : taxaRendimentoMensal;
+
+                    localStorage.setItem('cartoes_v2', JSON.stringify(cartoes));
+                    localStorage.setItem('despesas_v2', JSON.stringify(despesas));
+                    localStorage.setItem('faturas_pagas_v2', JSON.stringify(faturasPagas));
+                    localStorage.setItem('conta_movimentacoes_v3', JSON.stringify(contaMovimentacoes));
+                    localStorage.setItem('categorias_app_v3', JSON.stringify(categoriasApp));
+                    localStorage.setItem('orcamentos_app_v1', JSON.stringify(orcamentosApp));
+                    localStorage.setItem('taxa_rendimento_v3', taxaRendimentoMensal.toString());
+
+                    document.getElementById('ajuste-rendimento-indice').value = taxaRendimentoMensal.toString();
+                    atualizarSelectsCategorias();
+                    processarRendimentosAutomaticos();
+
+                    const activeTab = document.querySelector('nav button.text-sky-500').id.replace('nav-', '');
+                    switchTab(activeTab);
+                    setSyncStatus('success');
+                }
+            } catch (err) {
+                console.warn('Carregamento offline ativado.', err);
+                setSyncStatus('offline');
+            }
+        }
+
+        function switchTab(tab) {
+            const views = ['view-cartoes', 'view-despesas', 'view-conta', 'view-orcamento', 'view-consolidado', 'view-faturas', 'view-ajustes'];
+            views.forEach(v => {
+                const el = document.getElementById(v);
+                if (el) el.classList.add('hidden');
+            });
+
+            const navs = ['nav-cartoes', 'nav-despesas', 'nav-conta', 'nav-orcamento', 'nav-consolidado', 'nav-faturas', 'nav-ajustes'];
+            navs.forEach(n => {
+                const el = document.getElementById(n);
+                if (el) el.className = "flex flex-col items-center gap-1 text-slate-400 font-semibold text-[10px] w-12 hover:text-sky-500 transition";
+            });
+
+            const targetView = document.getElementById(`view-${tab}`);
+            const targetNav = document.getElementById(`nav-${tab}`);
+            if (targetView) targetView.classList.remove('hidden');
+            if (targetNav) targetNav.className = "flex flex-col items-center gap-1 text-sky-500 font-semibold text-[10px] w-12";
+
+            const pageTitle = document.getElementById('page-title');
+            if (tab === 'cartoes') {
+                pageTitle.innerText = "Meus Cartões"; renderCartoes();
+            } else if (tab === 'despesas') {
+                pageTitle.innerText = "Despesas"; renderDespesas();
+            } else if (tab === 'conta') {
+                pageTitle.innerText = "Conta Bancária"; renderConta();
+            } else if (tab === 'orcamento') {
+                pageTitle.innerText = "Orçamento Anual"; renderOrcamento();
+            } else if (tab === 'consolidado') {
+                pageTitle.innerText = "Consolidado Geral"; renderConsolidado();
+            } else if (tab === 'faturas') {
+                pageTitle.innerText = "Faturas do Mês"; renderFaturas();
+            } else if (tab === 'ajustes') {
+                pageTitle.innerText = "Ajustes"; renderGerenciarCategorias();
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function updateMonthLabel() {
+            document.getElementById('current-month-label').innerText = `${mesesExtenso[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+        }
+
+        function changeMonth(step) {
+            currentDate.setMonth(currentDate.getMonth() + step);
+            updateMonthLabel();
+            const activeTab = document.querySelector('nav button.text-sky-500').id.replace('nav-', '');
+            switchTab(activeTab);
+        }
+
+        function parseLocalDate(dateString) {
+            if (!dateString) return new Date();
+            const parts = dateString.split('-');
+            return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        }
+
+        function atualizarSelectsCategorias() {
+            const expSelect = document.getElementById('expense-category');
+            const contaSelect = document.getElementById('conta-mov-categoria');
+            const optionsHtml = categoriasApp.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+            if (expSelect) expSelect.innerHTML = optionsHtml;
+            if (contaSelect) contaSelect.innerHTML = optionsHtml;
+        }
+
+        async function salvarIndiceRendimento(valor) {
+            taxaRendimentoMensal = parseFloat(valor);
+            processarRendimentosAutomaticos();
+            await salvarEAutoSincronizar();
+        }
+
+        function processarRendimentosAutomaticos() {
+            contaMovimentacoes = contaMovimentacoes.filter(m => !m.id.startsWith('REND-AUTO-'));
+            if (taxaRendimentoMensal <= 0 || contaMovimentacoes.length === 0) {
+                localStorage.setItem('conta_movimentacoes_v3', JSON.stringify(contaMovimentacoes));
+                return;
+            }
+            
+            let datas = contaMovimentacoes.map(m => new Date(m.date));
+            let minData = new Date(Math.min(...datas));
+            let maxData = new Date();
+            let iterador = new Date(minData.getFullYear(), minData.getMonth(), 1);
+
+            while (iterador.getFullYear() < maxData.getFullYear() || (iterador.getFullYear() === maxData.getFullYear() && iterador.getMonth() <= maxData.getMonth())) {
+                let anoAtual = iterador.getFullYear();
+                let mesAtual = iterador.getMonth();
+                let limiteMesAnterior = new Date(anoAtual, mesAtual, 1);
+
+                let saldoMesAnterior = contaMovimentacoes
+                    .filter(m => new Date(m.date) < limiteMesAnterior)
+                    .reduce((acc, m) => m.tipo === 'entrada' ? acc + m.amount : acc - m.amount, 0);
+
+                if (saldoMesAnterior > 0) {
+                    let valorRendimento = saldoMesAnterior * (taxaRendimentoMensal / 100);
+                    let dataRendimento = new Date(anoAtual, mesAtual, 1, 12, 0, 0);
+                    contaMovimentacoes.push({
+                        id: `REND-AUTO-${anoAtual}-${mesAtual}`,
+                        tipo: 'entrada',
+                        title: `Rendimento s/ Saldo Anterior`,
+                        amount: valorRendimento,
+                        date: dataRendimento.toISOString(),
+                        category: 'Rendimentos'
+                    });
+                }
+                iterador.setMonth(iterador.getMonth() + 1);
+            }
+            localStorage.setItem('conta_movimentacoes_v3', JSON.stringify(contaMovimentacoes));
+        }
+
+        function renderOrcamento() {
+            const targetYear = currentDate.getFullYear();
+            const container = document.getElementById('lista-orcamentos');
+
+            const despesasCartaoAno = despesas.filter(d => d.faturaAno === targetYear);
+            const saidasContaAno = contaMovimentacoes.filter(m => {
+                const d = new Date(m.date);
+                return m.tipo === 'saida' && !m.id.startsWith('FAT-PAG-') && d.getFullYear() === targetYear;
+            });
+
+            const gastosPorCategoria = {};
+            categoriasApp.forEach(c => gastosPorCategoria[c.nome] = 0);
+
+            despesasCartaoAno.forEach(d => {
+                const cat = d.category || 'Geral';
+                if (gastosPorCategoria[cat] !== undefined) gastosPorCategoria[cat] += d.amount;
+                else gastosPorCategoria['Geral'] += d.amount;
+            });
+
+            saidasContaAno.forEach(s => {
+                const cat = s.category || 'Geral';
+                if (gastosPorCategoria[cat] !== undefined) gastosPorCategoria[cat] += s.amount;
+                else gastosPorCategoria['Geral'] += s.amount;
+            });
+
+            let totalOrcadoGeral = 0;
+            let totalGastoGeral = 0;
+
+            container.innerHTML = categoriasApp.map(cat => {
+                const orcado = orcamentosApp[cat.nome] || 0;
+                const gasto = gastosPorCategoria[cat.nome] || 0;
+                totalOrcadoGeral += orcado;
+                totalGastoGeral += gasto;
+
+                const percentual = orcado > 0 ? Math.min(Math.round((gasto / orcado) * 100), 100) : (gasto > 0 ? 100 : 0);
+                const ultrapassou = orcado > 0 && gasto > orcado;
+
+                return `
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full" style="background-color: ${cat.cor}"></span>
+                                <span class="font-bold text-slate-800 text-sm">${cat.nome}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs font-semibold text-slate-400">Teto Anual R$</span>
+                                <input type="number" step="0.01" value="${orcado > 0 ? orcado : ''}" placeholder="0,00" 
+                                    onchange="salvarMetaOrcamento('${cat.nome}', this.value)" 
+                                    class="w-24 text-right border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 bg-white focus:outline-sky-500">
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-500">Gasto Anual: <b class="${ultrapassou ? 'text-rose-600' : 'text-slate-700'}">R$ ${gasto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</b></span>
+                                <span class="font-bold text-xs ${ultrapassou ? 'text-rose-600' : 'text-slate-500'}">${orcado > 0 ? ((gasto/orcado)*100).toFixed(0)+'%' : '-'}</span>
+                            </div>
+                            <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                                <div class="h-full transition-all duration-300 ${ultrapassou ? 'bg-rose-500' : 'bg-sky-500'}" style="width: ${percentual}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('total-orcamento-mes').innerText = `R$ ${totalOrcadoGeral.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('total-gasto-orcamento-mes').innerText = `R$ ${totalGastoGeral.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        }
+
+        async function salvarMetaOrcamento(categoria, valor) {
+            orcamentosApp[categoria] = parseFloat(valor) || 0;
+            renderOrcamento();
+            await salvarEAutoSincronizar();
+        }
+
+        function renderGerenciarCategorias() {
+            const container = document.getElementById('lista-gerenciar-categorias');
+            container.innerHTML = categoriasApp.map(c => `
+                <div class="flex justify-between items-center bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full" style="background-color: ${c.cor}"></span>
+                        <span class="font-semibold text-slate-700">${c.nome}</span>
+                    </div>
+                    <button onclick="removerCategoria('${c.nome}')" class="text-rose-500 p-0.5 hover:bg-rose-50 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function adicionarCategoria(e) {
+            e.preventDefault();
+            const nome = document.getElementById('nova-cat-nome').value.trim();
+            const cor = document.getElementById('nova-cat-cor').value;
+
+            if(categoriasApp.some(c => c.nome.toLowerCase() === nome.toLowerCase())) {
+                alert("Esta categoria já existe!"); return;
+            }
+
+            categoriasApp.push({ nome, cor });
+            document.getElementById('form-nova-categoria').reset();
+            atualizarSelectsCategorias();
+            renderGerenciarCategorias();
+            await salvarEAutoSincronizar();
+        }
+
+        async function removerCategoria(nome) {
+            if(nome === 'Geral') { alert("A categoria 'Geral' não pode ser removida."); return; }
+            if(confirm(`Tem certeza que quer apagar a categoria ${nome}?`)) {
+                categoriasApp = categoriasApp.filter(c => c.nome !== nome);
+                despesas = despesas.map(d => d.category === nome ? {...d, category: 'Geral'} : d);
+                contaMovimentacoes = contaMovimentacoes.map(m => m.category === nome ? {...m, category: 'Geral'} : m);
+                delete orcamentosApp[nome];
+
+                atualizarSelectsCategorias();
+                renderGerenciarCategorias();
+                await salvarEAutoSincronizar();
+            }
+        }
+
+        function renderConta() {
+            processarRendimentosAutomaticos();
+            const targetMonth = currentDate.getMonth();
+            const targetYear = currentDate.getFullYear();
+
+            const saldoGeral = contaMovimentacoes.reduce((acc, curr) => curr.tipo === 'entrada' ? acc + curr.amount : acc - curr.amount, 0);
+            const movsDoMes = contaMovimentacoes.filter(m => {
+                const d = new Date(m.date);
+                return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+            });
+
+            const entradasMes = movsDoMes.filter(m => m.tipo === 'entrada').reduce((acc, curr) => acc + curr.amount, 0);
+            const saidasMes = movsDoMes.filter(m => m.tipo === 'saida').reduce((acc, curr) => acc + curr.amount, 0);
+
+            document.getElementById('conta-saldo-atual').innerText = `R$ ${saldoGeral.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('conta-saldo-atual').className = `text-3xl font-extrabold ${saldoGeral >= 0 ? 'text-emerald-400':'text-rose-400'}`;
+            document.getElementById('conta-total-entradas').innerText = `R$ ${entradasMes.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('conta-total-saidas').innerText = `R$ ${saidasMes.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('conta-rendimento-badge').innerText = `${taxaRendimentoMensal.toFixed(2)}% a.m.`;
+
+            const container = document.getElementById('lista-movimentacoes-conta');
+            if(movsDoMes.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-slate-400 bg-white border border-dashed rounded-2xl"><p class="text-sm">Nenhum registro em conta neste mês.</p></div>`;
+                return;
+            }
+
+            container.innerHTML = movsDoMes.sort((a,b) => new Date(b.date) - new Date(a.date)).map(m => {
+                const catObj = categoriasApp.find(c => c.nome === m.category) || {cor: '#64748b'};
+                const dObj = new Date(m.date);
+                const isAuto = m.id.startsWith('REND-AUTO-');
+
+                return `
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-8 rounded" style="background-color: ${m.tipo === 'entrada' ? '#10b981' : '#ef4444'}"></div>
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-sm">${m.title}</h4>
+                                <span class="text-xs text-slate-400 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${isAuto ? '#10b981' : catObj.cor}"></span>
+                                    ${isAuto ? 'Rendimento Automático' : (m.category || 'Geral')}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-right flex items-center gap-3">
+                            <div>
+                                <span class="font-bold text-sm block ${m.tipo === 'entrada' ? 'text-emerald-600':'text-rose-500'}">
+                                    ${m.tipo === 'entrada' ? '+':'-'} R$ ${m.amount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                                </span>
+                                <span class="text-[10px] text-slate-400">${dObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
+                            </div>
+                            ${isAuto ? '' : `<button onclick="excluirMovimentacaoConta('${m.id}')" class="text-slate-300 hover:text-rose-500 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function abrirModalMovimentacao(tipo) {
+            document.getElementById('form-conta').reset();
+            document.getElementById('conta-mov-tipo').value = tipo;
+            document.getElementById('conta-mov-id').value = '';
+            
+            const btn = document.getElementById('btn-salvar-conta');
+            const catContainer = document.getElementById('container-conta-categoria');
+
+            if(tipo === 'entrada') {
+                document.getElementById('modal-conta-title').innerText = "Adicionar Ganho / Depósito";
+                btn.className = "w-full bg-emerald-500 text-white font-bold py-3 rounded-xl mt-2 hover:bg-emerald-600";
+                catContainer.classList.add('hidden');
+            } else {
+                document.getElementById('modal-conta-title').innerText = "Registrar Gasto Fora do Cartão";
+                btn.className = "w-full bg-rose-500 text-white font-bold py-3 rounded-xl mt-2 hover:bg-rose-600";
+                catContainer.classList.remove('hidden');
+            }
+
+            const hoje = new Date();
+            document.getElementById('conta-mov-data').value = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+            document.getElementById('modal-conta').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function fecharModalMovimentacao() { document.getElementById('modal-conta').classList.add('hidden'); }
+
+        async function salvarMovimentacaoConta(e) {
+            e.preventDefault();
+            const id = document.getElementById('conta-mov-id').value;
+            const tipo = document.getElementById('conta-mov-tipo').value;
+            const title = document.getElementById('conta-mov-titulo').value;
+            const amount = parseFloat(document.getElementById('conta-mov-valor').value);
+            const dateInput = parseLocalDate(document.getElementById('conta-mov-data').value);
+            const category = tipo === 'saida' ? document.getElementById('conta-mov-categoria').value : 'Geral';
+
+            const data = { id: id || Date.now().toString(), tipo, title, amount, date: dateInput.toISOString(), category };
+
+            if(id) { contaMovimentacoes = contaMovimentacoes.map(m => m.id === id ? data : m); } 
+            else { contaMovimentacoes.push(data); }
+
+            fecharModalMovimentacao();
+            renderConta();
+            await salvarEAutoSincronizar();
+        }
+
+        async function excluirMovimentacaoConta(id) {
+            if(confirm("Deseja apagar este registro do extrato?")) {
+                contaMovimentacoes = contaMovimentacoes.filter(m => m.id !== id);
+                renderConta();
+                await salvarEAutoSincronizar();
+            }
+        }
+
+        function renderConsolidado() {
+            const targetMonth = currentDate.getMonth();
+            const targetYear = currentDate.getFullYear();
+
+            const parcelasCartaoMes = despesas.filter(d => d.faturaMes === targetMonth && d.faturaAno === targetYear);
+            const totalFaturasCartao = parcelasCartaoMes.reduce((acc, curr) => acc + curr.amount, 0);
+
+            const saidasContaMes = contaMovimentacoes.filter(m => {
+                const d = new Date(m.date);
+                return m.tipo === 'saida' && !m.id.startsWith('FAT-PAG-') && d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+            });
+            const totalSaidasConta = saidasContaMes.reduce((acc, curr) => acc + curr.amount, 0);
+            const totalGeralConsolidado = totalFaturasCartao + totalSaidasConta;
+
+            document.getElementById('consolidado-cartao').innerText = `R$ ${totalFaturasCartao.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('consolidado-conta').innerText = `R$ ${totalSaidasConta.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('consolidado-geral-total').innerText = `R$ ${totalGeralConsolidado.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+
+            const dicionarioCategorias = {};
+            categoriasApp.forEach(c => dicionarioCategorias[c.nome] = 0);
+
+            parcelasCartaoMes.forEach(p => {
+                const cat = p.category || 'Geral';
+                if(dicionarioCategorias[cat] !== undefined) dicionarioCategorias[cat] += p.amount;
+                else dicionarioCategorias['Geral'] += p.amount;
+            });
+
+            saidasContaMes.forEach(s => {
+                const cat = s.category || 'Geral';
+                if(dicionarioCategorias[cat] !== undefined) dicionarioCategorias[cat] += s.amount;
+                else dicionarioCategorias['Geral'] += s.amount;
+            });
+
+            const containerLista = document.getElementById('lista-consolidado-categorias');
+            if(totalGeralConsolidado === 0) {
+                containerLista.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4 col-span-2">Nenhum gasto consolidado encontrado neste mês.</p>`;
+                if(chartInstance) chartInstance.destroy();
+                return;
+            }
+
+            containerLista.innerHTML = categoriasApp.map(cat => {
+                const valorGasto = dicionarioCategorias[cat.nome] || 0;
+                const percentual = totalGeralConsolidado > 0 ? ((valorGasto / totalGeralConsolidado) * 100).toFixed(1) : 0;
+                if(valorGasto === 0) return '';
+
+                return `
+                    <div class="bg-white rounded-xl p-3.5 shadow-sm border border-slate-100 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full" style="background-color: ${cat.cor}"></span>
+                            <span class="font-bold text-slate-700 text-sm">${cat.nome}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-bold text-slate-800 text-sm block">R$ ${valorGasto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                            <span class="text-[10px] bg-slate-100 font-bold px-2 py-0.5 rounded text-slate-500">${percentual}% do total</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const categoriasComGasto = categoriasApp.filter(c => dicionarioCategorias[c.nome] > 0);
+            const labelsGrafico = categoriasComGasto.map(c => c.nome);
+            const coresGrafico = categoriasComGasto.map(c => c.cor);
+            const dadosGrafico = categoriasComGasto.map(c => dicionarioCategorias[c.nome]);
+
+            if(chartInstance) chartInstance.destroy();
+
+            const canvas = document.getElementById('chartCategorias');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                chartInstance = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labelsGrafico,
+                        datasets: [{ data: dadosGrafico, backgroundColor: coresGrafico, borderWidth: 1, borderColor: '#ffffff' }]
+                    },
+                    options: { responsive: true, plugins: { legend: { display: false } } }
+                });
+            }
+        }
+
+        async function togglePagarFatura(cardId, ano, mes) {
+            const chave = `${cardId}-${ano}-${mes}`;
+            const card = cartoes.find(c => c.id === cardId);
+            const parcelasDaFatura = despesas.filter(d => d.cardId === cardId && d.faturaMes === mes && d.faturaAno === ano);
+            const totalFatura = parcelasDaFatura.reduce((acc, curr) => acc + curr.amount, 0);
+
+            if(faturasPagas[chave]) {
+                if(confirm(`Estornar pagamento da fatura de R$ ${totalFatura.toFixed(2)}?`)) {
+                    delete faturasPagas[chave];
+                    contaMovimentacoes = contaMovimentacoes.filter(m => m.id !== `FAT-PAG-${chave}`);
+                } else return;
+            } else {
+                if(confirm(`Quitar a fatura do ${card.name} no valor de R$ ${totalFatura.toLocaleString('pt-BR', {minimumFractionDigits: 2})}?`)) {
+                    faturasPagas[chave] = true;
+                    contaMovimentacoes.push({
+                        id: `FAT-PAG-${chave}`,
+                        tipo: 'saida',
+                        title: `Fatura Paga - ${card.name}`,
+                        amount: totalFatura,
+                        date: new Date().toISOString(),
+                        category: 'Moradia'
+                    });
+                } else return;
+            }
+
+            renderFaturas();
+            renderCartoes();
+            await salvarEAutoSincronizar();
+        }
+
+        function abrirModalCartao(id = null) {
+            const modal = document.getElementById('modal-cartao');
+            document.getElementById('form-cartao').reset();
+            document.getElementById('card-id').value = '';
+            document.getElementById('modal-cartao-title').innerText = "Adicionar Novo Cartão";
+
+            if(id) {
+                const card = cartoes.find(c => c.id === id);
+                if(card) {
+                    document.getElementById('card-id').value = card.id;
+                    document.getElementById('card-name').value = card.name;
+                    document.getElementById('card-holder').value = card.holder;
+                    document.getElementById('card-limit').value = card.limit;
+                    document.getElementById('card-color').value = card.color;
+                    document.getElementById('card-close').value = card.closingDay;
+                    document.getElementById('card-pay').value = card.paymentDay;
+                    document.getElementById('modal-cartao-title').innerText = "Editar Cartão";
+                }
+            }
+            modal.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function fecharModalCartao() { document.getElementById('modal-cartao').classList.add('hidden'); }
+
+        async function salvarCartao(e) {
+            e.preventDefault();
+            const id = document.getElementById('card-id').value;
+            const data = {
+                name: document.getElementById('card-name').value,
+                holder: document.getElementById('card-holder').value.toUpperCase(),
+                limit: parseFloat(document.getElementById('card-limit').value),
+                color: document.getElementById('card-color').value,
+                closingDay: parseInt(document.getElementById('card-close').value),
+                paymentDay: parseInt(document.getElementById('card-pay').value),
+                exceptions: id ? (cartoes.find(c => c.id === id)?.exceptions || {}) : {}
+            };
+
+            if(id) { cartoes = cartoes.map(c => c.id === id ? { ...c, ...data } : c); } 
+            else { data.id = Date.now().toString(); cartoes.push(data); }
+
+            recalcularFaturasMeses();
+            fecharModalCartao();
+            renderCartoes();
+            await salvarEAutoSincronizar();
+        }
+
+        async function excluirCartao(id) {
+            if(confirm("Excluir este cartão apagará todas as despesas vinculadas. Continuar?")) {
+                cartoes = cartoes.filter(c => c.id !== id);
+                despesas = despesas.filter(d => d.cardId !== id);
+                renderCartoes();
+                await salvarEAutoSincronizar();
+            }
+        }
+
+        function abrirModalExcecao(cardId) {
+            document.getElementById('excecao-card-id').value = cardId;
+            const card = cartoes.find(c => c.id === cardId);
+            const chaveMes = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+            document.getElementById('excecao-dia').value = (card.exceptions && card.exceptions[chaveMes]) ? card.exceptions[chaveMes] : card.closingDay;
+            document.getElementById('modal-excecao').classList.remove('hidden');
+        }
+
+        function fecharModalExcecao() { document.getElementById('modal-excecao').classList.add('hidden'); }
+
+        async function salvarExcecao(e) {
+            e.preventDefault();
+            const cardId = document.getElementById('excecao-card-id').value;
+            const novoDia = parseInt(document.getElementById('excecao-dia').value);
+            const chaveMes = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+
+            cartoes = cartoes.map(c => {
+                if(c.id === cardId) {
+                    if(!c.exceptions) c.exceptions = {};
+                    c.exceptions[chaveMes] = novoDia;
+                }
+                return c;
+            });
+
+            fecharModalExcecao();
+            recalcularFaturasMeses();
+            renderCartoes();
+            await salvarEAutoSincronizar();
+        }
+
+        function recalcularFaturasMeses() {
+            despesas = despesas.map(d => {
+                const card = cartoes.find(c => c.id === d.cardId);
+                if(!card) return d;
+                
+                const dataCompra = new Date(d.date);
+                const chaveMesCompra = `${dataCompra.getFullYear()}-${dataCompra.getMonth()}`;
+                const diaFechamento = (card.exceptions && card.exceptions[chaveMesCompra]) ? card.exceptions[chaveMesCompra] : card.closingDay;
+
+                let faturaData = new Date(dataCompra);
+                if (diaFechamento > card.paymentDay) { faturaData.setMonth(faturaData.getMonth() + 1); }
+                if (dataCompra.getDate() >= diaFechamento) { faturaData.setMonth(faturaData.getMonth() + 1); }
+                
+                const offset = (d.installmentIndex !== undefined) ? d.installmentIndex : 0;
+                faturaData.setMonth(faturaData.getMonth() + offset);
+
+                return { ...d, faturaMes: faturaData.getMonth(), faturaAno: faturaData.getFullYear() };
+            });
+            localStorage.setItem('despesas_v2', JSON.stringify(despesas));
+        }
+
+        function getLimiteDisponivel(card) {
+            const todasNaoPagas = despesas.filter(d => d.cardId === card.id && !faturasPagas[`${card.id}-${d.faturaAno}-${d.faturaMes}`]);
+            const totalConsumido = todasNaoPagas.reduce((acc, curr) => acc + curr.amount, 0);
+            return Math.max(0, card.limit - totalConsumido);
+        }
+
+        function renderCartoes() {
+            let somaLimiteTotal = cartoes.reduce((acc, c) => acc + c.limit, 0);
+            let somaLimiteLivre = cartoes.reduce((acc, c) => acc + getLimiteDisponivel(c), 0);
+
+            document.getElementById('resumo-limite-total').innerText = `R$ ${somaLimiteTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('resumo-limite-livre').innerText = `R$ ${somaLimiteLivre.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+
+            const container = document.getElementById('lista-cartoes');
+            if (cartoes.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 text-slate-400 col-span-2"><i data-lucide="info" class="w-12 h-12 mx-auto mb-2"></i><p>Nenhum cartão cadastrado.</p></div>`;
+                return;
+            }
+
+            const chaveMesAtual = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+            container.innerHTML = cartoes.map(card => {
+                const disponivel = getLimiteDisponivel(card);
+                const temExcecao = card.exceptions && card.exceptions[chaveMesAtual];
+                const diaFechamentoEfetivo = temExcecao ? card.exceptions[chaveMesAtual] : card.closingDay;
+
+                return `
+                    <div class="space-y-3">
+                        <div class="bg-gradient-to-br ${card.color} rounded-2xl p-5 text-white shadow-lg space-y-6 relative">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 class="font-bold text-lg">${card.name}</h4>
+                                    <span class="text-xs text-white/70">Crédito</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="abrirModalCartao('${card.id}')" class="bg-white/20 p-1.5 rounded-lg hover:bg-white/30"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                    <button onclick="excluirCartao('${card.id}')" class="bg-rose-600/80 p-1.5 rounded-lg hover:bg-rose-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-7 bg-amber-400/80 rounded-md border border-amber-300"></div>
+                                <span class="text-sm tracking-widest">•••• •••• •••• 5955</span>
+                            </div>
+                            <div class="flex justify-between items-end">
+                                <div><span class="text-[10px] text-white/60 uppercase block">Titular</span><span class="text-sm font-semibold">${card.holder}</span></div>
+                                <div class="text-right"><span class="text-[10px] text-white/60 uppercase block">Lim. Disponível</span><span class="text-base font-bold">R$ ${disponivel.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-3">
+                            <div class="flex justify-between text-xs text-slate-500">
+                                <div class="cursor-pointer bg-slate-50 hover:bg-slate-100 p-1.5 rounded border border-slate-200" onclick="abrirModalExcecao('${card.id}')">
+                                    <span class="block text-slate-400 flex items-center gap-1">Fechamento <i data-lucide="calendar" class="w-3 h-3 text-amber-500"></i></span>
+                                    <span class="font-bold text-slate-700">Dia ${diaFechamentoEfetivo} ${temExcecao ? '<b class="text-amber-600 text-[10px]">(Alt. Mês)</b>':''}</span>
+                                </div>
+                                <div><span class="block text-slate-400 text-right">Vencimento</span><span class="font-bold text-slate-700 block text-right">Dia ${card.paymentDay}</span></div>
+                                <div><span class="block text-slate-400 text-right">Limite Total</span><span class="font-bold text-slate-700 block text-right">R$ ${card.limit.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function abrirModalDespesa(id = null) {
+            if(cartoes.length === 0) { alert("Cadastre um cartão primeiro!"); return; }
+            atualizarSelectsCategorias();
+            const select = document.getElementById('expense-card');
+            select.innerHTML = cartoes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+            document.getElementById('form-despesa').reset();
+            document.getElementById('expense-id').value = '';
+            document.getElementById('expense-group-id').value = '';
+            document.getElementById('container-parcelas').classList.remove('hidden');
+            document.getElementById('modal-despesa-title').innerText = "Adicionar Despesa";
+
+            if(id) {
+                const d = despesas.find(item => item.id === id);
+                if(d) {
+                    document.getElementById('expense-id').value = d.id;
+                    document.getElementById('expense-group-id').value = d.groupId;
+                    document.getElementById('expense-card').value = d.cardId;
+                    document.getElementById('expense-title').value = d.titleOriginal || d.title;
+                    document.getElementById('expense-amount').value = d.totalAmountOriginal || d.amount;
+                    
+                    const dObj = new Date(d.date);
+                    document.getElementById('expense-date').value = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
+                    document.getElementById('expense-category').value = d.category || 'Geral';
+                    document.getElementById('container-parcelas').classList.add('hidden');
+                }
+            } else {
+                const hoje = new Date();
+                document.getElementById('expense-date').value = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+            }
+            document.getElementById('modal-despesa').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function fecharModalDespesa() { document.getElementById('modal-despesa').classList.add('hidden'); }
+
+        async function salvarDespesa(e) {
+            e.preventDefault();
+            const id = document.getElementById('expense-id').value;
+            const groupIdInput = document.getElementById('expense-group-id').value;
+            const cardId = document.getElementById('expense-card').value;
+            const titleInput = document.getElementById('expense-title').value;
+            const amountInput = parseFloat(document.getElementById('expense-amount').value);
+            const dateInput = parseLocalDate(document.getElementById('expense-date').value);
+            const categoryInput = document.getElementById('expense-category').value;
+            const card = cartoes.find(c => c.id === cardId);
+
+            if(id) {
+                despesas = despesas.map(d => {
+                    if(d.groupId === groupIdInput) {
+                        const parcelaNum = d.installmentNumber;
+                        const totalParcelas = d.totalInstallments;
+                        const dataParcela = new Date(dateInput);
+                        dataParcela.setMonth(dateInput.getMonth() + (parcelaNum - 1));
+
+                        let faturaData = new Date(dataParcela);
+                        const chaveMesCompra = `${dataParcela.getFullYear()}-${dataParcela.getMonth()}`;
+                        const diaFechamento = (card.exceptions && card.exceptions[chaveMesCompra]) ? card.exceptions[chaveMesCompra] : card.closingDay;
+
+                        if (diaFechamento > card.paymentDay) { faturaData.setMonth(faturaData.getMonth() + 1); }
+                        if (dataParcela.getDate() >= diaFechamento) { faturaData.setMonth(faturaData.getMonth() + 1); }
+
+                        return {
+                            ...d, cardId, category: categoryInput,
+                            title: totalParcelas > 1 ? `${titleInput} (${parcelaNum}/${totalParcelas})` : `${titleInput} (1/1)`,
+                            titleOriginal: titleInput, amount: amountInput / totalParcelas, totalAmountOriginal: amountInput,
+                            date: dateInput.toISOString(), faturaMes: faturaData.getMonth(), faturaAno: faturaData.getFullYear()
+                        };
+                    }
+                    return d;
+                });
+            } else {
+                const installmentsCount = parseInt(document.getElementById('expense-installments').value);
+                const gId = Date.now().toString();
+                const valorParcela = amountInput / installmentsCount;
+
+                for (let i = 0; i < installmentsCount; i++) {
+                    let installmentDate = new Date(dateInput);
+                    installmentDate.setMonth(dateInput.getMonth() + i);
+
+                    let faturaData = new Date(installmentDate);
+                    const chaveMesCompra = `${installmentDate.getFullYear()}-${installmentDate.getMonth()}`;
+                    const diaFechamento = (card.exceptions && card.exceptions[chaveMesCompra]) ? card.exceptions[chaveMesCompra] : card.closingDay;
+
+                    if (diaFechamento > card.paymentDay) { faturaData.setMonth(faturaData.getMonth() + 1); }
+                    if (installmentDate.getDate() >= diaFechamento) { faturaData.setMonth(faturaData.getMonth() + 1); }
+
+                    despesas.push({
+                        id: `${gId}-${i}`, groupId: gId, cardId, category: categoryInput,
+                        title: `${titleInput} (${i+1}/${installmentsCount})`, titleOriginal: titleInput,
+                        amount: valorParcela, totalAmountOriginal: amountInput, date: dateInput.toISOString(),
+                        installmentIndex: i, installmentNumber: i + 1, totalInstallments: installmentsCount,
+                        faturaMes: faturaData.getMonth(), faturaAno: faturaData.getFullYear()
+                    });
+                }
+            }
+
+            fecharModalDespesa();
+            renderDespesas();
+            await salvarEAutoSincronizar();
+        }
+
+        async function excluirDespesa(groupId) {
+            if(confirm("Deseja realmente apagar esta compra do cartão por completo?")) {
+                despesas = despesas.filter(d => d.groupId !== groupId);
+                renderDespesas();
+                await salvarEAutoSincronizar();
+            }
+        }
+
+        function renderDespesas() {
+            const container = document.getElementById('lista-despesas');
+            const targetMonth = currentDate.getMonth();
+            const targetYear = currentDate.getFullYear();
+
+            const comprasDoMes = despesas.filter(d => {
+                const dt = new Date(d.date);
+                return dt.getMonth() === targetMonth && dt.getFullYear() === targetYear;
+            });
+
+            const gruposExibidos = {};
+            const comprasAgrupadas = [];
+            comprasDoMes.forEach(d => {
+                if(!gruposExibidos[d.groupId]) { gruposExibidos[d.groupId] = true; comprasAgrupadas.push(d); }
+            });
+
+            const total = comprasAgrupadas.reduce((acc, curr) => acc + (curr.totalAmountOriginal || curr.amount), 0);
+            document.getElementById('total-despesas-mes').innerText = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+
+            if (comprasAgrupadas.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 bg-white rounded-2xl border border-dashed"><p class="text-sm font-semibold">Nenhuma compra feita no cartão este mês.</p></div>`;
+                return;
+            }
+
+            container.innerHTML = comprasAgrupadas.map(d => {
+                const card = cartoes.find(c => c.id === d.cardId);
+                const dObj = new Date(d.date);
+                return `
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex justify-between items-center">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-sm">${d.titleOriginal} ${d.totalInstallments > 1 ? '<span class="text-xs text-slate-400">('+d.totalInstallments+'x)</span>':''}</h4>
+                            <span class="text-xs text-slate-400">${card ? card.name : 'Desconhecido'} • ${d.category}</span>
+                        </div>
+                        <div class="text-right flex items-center gap-3">
+                            <div>
+                                <span class="font-bold text-slate-800 block text-sm">R$ ${(d.totalAmountOriginal || d.amount).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                                <span class="text-[10px] text-slate-400">${dObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
+                            </div>
+                            <div class="flex gap-1">
+                                <button onclick="abrirModalDespesa('${d.id}')" class="p-1 text-sky-500 rounded"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                <button onclick="excluirDespesa('${d.groupId}')" class="p-1 text-rose-500 rounded"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function renderFaturas() {
+            const container = document.getElementById('lista-faturas');
+            const targetMonth = currentDate.getMonth();
+            const targetYear = currentDate.getFullYear();
+
+            if (cartoes.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 text-slate-400 col-span-2"><p>Cadastre cartões para ver suas faturas.</p></div>`;
+                return;
+            }
+
+            container.innerHTML = cartoes.map(card => {
+                const parcelasDaFatura = despesas.filter(d => d.cardId === card.id && d.faturaMes === targetMonth && d.faturaAno === targetYear);
+                const totalFatura = parcelasDaFatura.reduce((acc, curr) => acc + curr.amount, 0);
+                const chaveFatura = `${card.id}-${targetYear}-${targetMonth}`;
+                const estaPaga = !!faturasPagas[chaveFatura];
+
+                return `
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4 flex flex-col justify-between ${estaPaga ? 'border-l-4 border-l-emerald-500 bg-emerald-50/20' : 'border-l-4 border-l-amber-500'}">
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-slate-800">${card.name}</h3>
+                                    <span class="text-xs text-slate-400">Vencimento: Dia ${card.paymentDay}/${targetMonth+1}/${targetYear}</span>
+                                </div>
+                                <span class="text-xs font-bold px-2.5 py-1 rounded-full ${estaPaga ? 'bg-emerald-100 text-emerald-700':'bg-amber-100 text-amber-700'}">${estaPaga ? 'PAGA':'EM ABERTO'}</span>
+                            </div>
+                            ${parcelasDaFatura.length > 0 ? `
+                                <div class="border-t border-slate-100 pt-2 space-y-2">
+                                    ${parcelasDaFatura.map(p => `
+                                        <div class="flex justify-between text-xs">
+                                            <span class="text-slate-600">${p.title}</span>
+                                            <span class="font-semibold text-slate-800">R$ ${p.amount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : `<p class="text-xs text-slate-400 italic">Nenhuma compra agendada nesta fatura.</p>`}
+                        </div>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-3 mt-2">
+                            <div>
+                                <span class="text-[10px] text-slate-400 uppercase block">Total da Fatura</span>
+                                <span class="text-lg font-bold ${estaPaga ? 'text-emerald-600' : 'text-slate-800'}">R$ ${totalFatura.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                            </div>
+                            ${totalFatura > 0 ? `
+                                <button onclick="togglePagarFatura('${card.id}', ${targetYear}, ${targetMonth})" class="px-4 py-2 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1 ${estaPaga ? 'bg-slate-200 text-slate-600 hover:bg-slate-300':'bg-emerald-500 hover:bg-emerald-600 text-white'}">
+                                    <i data-lucide="${estaPaga ? 'rotate-ccw':'check'}" class="w-4 h-4"></i>${estaPaga ? 'Estornar':'Pagar Fatura'}
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function limparTudo() {
+            if(confirm("Deseja apagar TUDO localmente e na nuvem?")) {
+                localStorage.clear();
+                cartoes = []; despesas = []; faturasPagas = {}; contaMovimentacoes = []; orcamentosApp = {};
+                await salvarEAutoSincronizar();
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
